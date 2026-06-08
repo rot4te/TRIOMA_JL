@@ -1,0 +1,9 @@
+# .gitignore
+
+*.code-workspace
+
+Manifest.toml
+
+*.DS_Store
+
+*.ipynb
