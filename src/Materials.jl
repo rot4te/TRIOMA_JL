@@ -11,10 +11,11 @@ Note: several LiPb and Sodium properties are currently placeholder values
 module Materials
 
 using ..PipeSubclasses: FluidMaterial, SolidMaterial
+using AtomicAndPhysicalConstants: BOLTZMANN_k, J_PER_EV, AVOGADRO
 
 export Flibe, Sodium, LiPb, Steel
 
-const R_CONST = 8.314   # J / mol / K
+const R_CONST = BOLTZMANN_k * J_PER_EV * AVOGADRO   # J / mol / K
 
 # ── Flibe ─────────────────────────────────────────────────────────────────────
 

@@ -6,8 +6,9 @@ sub-objects used by the Component type.
 """
 module PipeSubclasses
 
-using ..TriomaModule: TriomaClass, update_attribute!
+using ..TriomaTypes: TriomaClass, update_attribute!
 using ..Correlations
+using AtomicAndPhysicalConstants: BOLTZMANN_k
 
 export Geometry, Fluid, Membrane, FluidMaterial, SolidMaterial,
        Turbulator, WireCoil, CustomTurbulator,
@@ -128,7 +129,7 @@ SolidMaterial(; T=nothing, D=nothing, K_S=nothing, k=nothing) =
 
 # ── Fluid ──────────────────────────────────────────────────────────────────────
 
-const K_B_EV = 8.617333262145e-5   # Boltzmann constant [eV/K]
+const K_B_EV = BOLTZMANN_k   # Boltzmann constant [eV/K]
 
 """
     Fluid
@@ -213,7 +214,7 @@ function get_kt!(fluid::Fluid; turbulator=nothing)
         println("k_t is already defined")
         return
     end
-    Re_val = Correlations.Re(; rho=fluid.rho, u=fluid.U0, L=fluid.d_Hyd, mu=fluid.mu)
+    Re_val = Correlations.Re(fluid.rho, fluid.U0, fluid.d_Hyd, fluid.mu)
     Sc_val = Correlations.Schmidt(fluid.D, fluid.mu, fluid.rho)
 
     if turbulator === nothing

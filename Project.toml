@@ -1,13 +1,14 @@
-[package]
 name = "TRIOMA"
-uuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-authors = ["Julia translation of TRIOMA by Gabriele Ferrero, Samuele Meschini"]
+uuid = "00000000-0000-0000-0000-000000000001"
 version = "0.1.0"
+authors = ["Translated from Python by Gabriele Ferrero, Samuele Meschini"]
 
 [deps]
+AtomicAndPhysicalConstants = "5c0d271c-5419-4163-b387-496237733d8b"
+LambertW = "984bce1d-4616-540c-a9ee-88d1112d94c9"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
+AtomicAndPhysicalConstants = "0.8.2"
 julia = "1.9"
