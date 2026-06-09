@@ -34,7 +34,7 @@ WireCoil(; pitch=nothing) = WireCoil("WireCoil", pitch)
 
 function k_t_correlation(t::WireCoil; Re, Sc, d_hyd, D)
     Sh = Re > 2030 ? 0.132 * Re^0.72 * Sc^0.37 * (t.pitch / d_hyd)^(-0.372) : 3.66
-    return Correlations.get_k_from_Sh(Sh, t.pitch, D)
+    return Correlations.get_k_from_Sh(Sh, d_hyd, D)
 end
 
 function h_t_correlation(t::WireCoil; Re, Pr, d_hyd, k)

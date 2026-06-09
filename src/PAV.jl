@@ -114,8 +114,6 @@ end
 
 """Pressure drop across the component [Pa]."""
 function get_pressure_drop!(comp::Component)::Float64
-    f  = comp |> c -> friction_factor(c,
-            Correlations.Re(c.fluid.rho, c.fluid.U0, c.geometry.D, c.fluid.mu))
     Re_val = Correlations.Re(comp.fluid.rho, comp.fluid.U0, comp.geometry.D, comp.fluid.mu)
     f_val  = friction_factor(comp, Re_val)
     comp.delta_p = f_val * (comp.geometry.L / comp.geometry.D) *
@@ -260,22 +258,20 @@ function analytical_efficiency!(comp::Component; p_out::Float64=1e-15)
 
             if beta_tau > max_exp || p_out > 1e-5
                 # Solve iteratively (no Lambert W approximation available here)
-                function eq(cl_vec)
-                    cl = cl_vec[1]
+                function eq(cl)
                     left  = (cl / comp.alpha + 1.0 + 2 * f)^0.5 +
                             (1.0 + f) * log(-f + ((cl / comp.alpha + 1.0 + 2 * f)^0.5 - 1.0))
                     right = beta - comp.tau
                     return (left - right)^2
                 end
-                lo = [min(p_out * comp.fluid.Solubility, comp.c_in)]
-                hi = [max(p_out * comp.fluid.Solubility, comp.c_in)]
+                lo1 = min(p_out * comp.fluid.Solubility, comp.c_in)
+                hi1 = max(p_out * comp.fluid.Solubility, comp.c_in)
                 if abs(p_out * comp.fluid.Solubility - comp.c_in) / comp.c_in < 1e-2
                     comp.eff_an = 1e-6
                     return
                 end
-                res = optimize(eq, lo, hi, [(lo[1] + hi[1]) / 2], Fminbox(NelderMead()),
-                               Optim.Options(g_tol=1e-7))
-                comp.eff_an = 1.0 - (Optim.minimizer(res)[1] / comp.c_in)
+                res = optimize(eq, lo1, hi1, Brent())
+                comp.eff_an = 1.0 - (Optim.minimizer(res) / comp.c_in)
             else
                 z = exp(beta_tau)
                 w = lambertw(complex(z), 0)
@@ -345,17 +341,14 @@ function _get_flux_ms!(comp, c, W, H; c_guess, p_out)
             # Mixed: mass transport + diffusion
             log_term = log((comp.fluid.d_Hyd / 2 + comp.membrane.thick) / (comp.fluid.d_Hyd / 2))
             denom    = comp.fluid.d_Hyd / 2 * log_term
-            function eq_md(cv)
-                c_wl = cv[1]
+            function eq_md(c_wl)
                 J_mt   = 2 * comp.fluid.k_t * (c - c_wl)
                 J_diff = comp.membrane.D / denom * comp.membrane.K_S *
                          ((c_wl / comp.fluid.Solubility)^0.5 - p_out^0.5)
                 return abs(J_diff - J_mt)
             end
-            ub = max(c * (1 + 1e-4), 1e-4)
-            res = optimize(eq_md, [0.0], [ub], [c_guess], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-8))
-            cwl = Optim.minimizer(res)[1]
+            res = optimize(eq_md, 0.0, c, Brent())
+            cwl = Optim.minimizer(res)
             comp.J_perm = -2 * comp.fluid.k_t * (c - cwl)
             return cwl
         end
@@ -366,16 +359,14 @@ function _get_flux_ms!(comp, c, W, H; c_guess, p_out)
             comp.J_perm = -comp.membrane.k_d * (c / comp.fluid.Solubility)
         else
             # Mixed: mass transport + surface
-            function eq_ms(cv)
-                c_wl = cv[1]
+            function eq_ms(c_wl)
                 J_mt   = 2 * comp.fluid.k_t * (c - c_wl)
                 J_surf = comp.membrane.k_d * (c / comp.fluid.Solubility) -
                          comp.membrane.k_d * comp.membrane.K_S^2 * c_wl^2
                 return abs(J_mt - J_surf)
             end
-            res = optimize(eq_ms, [0.0], [c * (1 + 1e-4)], [c * 0.1], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-8))
-            cwl = Optim.minimizer(res)[1]
+            res = optimize(eq_ms, 0.0, c, Brent())
+            cwl = Optim.minimizer(res)
             comp.J_perm = 2 * comp.fluid.k_t * (c - cwl)
             return cwl
         end
@@ -386,17 +377,15 @@ function _get_flux_ms!(comp, c, W, H; c_guess, p_out)
         elseif H / W < 0.0001
             log_term = log((comp.fluid.d_Hyd / 2 + comp.membrane.thick) / (comp.fluid.d_Hyd / 2))
             denom    = comp.fluid.d_Hyd / 2 * log_term
-            function eq_sd(cv)
-                c_wl = cv[1]
+            function eq_sd(c_wl)
                 J_surf = comp.membrane.k_d * (c / comp.fluid.Solubility) -
                          comp.membrane.k_d * comp.membrane.K_S^2 * c_wl^2
                 J_diff = comp.membrane.D / denom *
                          comp.membrane.K_S * ((c_wl / comp.fluid.Solubility)^0.5 - p_out^0.5)
                 return abs(J_diff - J_surf)
             end
-            res = optimize(eq_sd, [1e-14], [c], [c_guess], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-7))
-            cw = Optim.minimizer(res)[1]
+            res = optimize(eq_sd, 1e-14, c, Brent())
+            cw = Optim.minimizer(res)
             log_term2 = log((comp.fluid.d_Hyd/2 + comp.membrane.thick)/(comp.fluid.d_Hyd/2))
             comp.J_perm = comp.membrane.D / (comp.fluid.d_Hyd/2 * log_term2) *
                           (comp.membrane.K_S * (cw / comp.fluid.Solubility)^0.5 - p_out^0.5)
@@ -440,17 +429,14 @@ function _get_flux_lm!(comp, c, W, H; c_guess, p_out)
         else
             log_term = log((comp.fluid.d_Hyd/2 + comp.membrane.thick)/(comp.fluid.d_Hyd/2))
             denom    = comp.fluid.d_Hyd / 2 * log_term
-            function eq_md(cv)
-                c_wl = cv[1]
+            function eq_md(c_wl)
                 J_mt   = comp.fluid.k_t * (c - c_wl)
                 J_diff = comp.membrane.D / denom *
                          (comp.membrane.K_S * (c_wl / comp.fluid.Solubility - p_out^0.5))
                 return abs(J_diff - J_mt)
             end
-            ub = max(c * (1 + 1e-4), 1e-4)
-            res = optimize(eq_md, [0.0], [ub], [c_guess], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-8))
-            cwl = Optim.minimizer(res)[1]
+            res = optimize(eq_md, 0.0, c, Brent())
+            cwl = Optim.minimizer(res)
             comp.J_perm = -comp.fluid.k_t * (c - cwl)
             return cwl
         end
@@ -460,16 +446,14 @@ function _get_flux_lm!(comp, c, W, H; c_guess, p_out)
         elseif H < 0.01
             comp.J_perm = -comp.membrane.k_d * (c / comp.fluid.Solubility)
         else
-            function eq_ms(cv)
-                c_wl = cv[1]
+            function eq_ms(c_wl)
                 J_mt   = comp.fluid.k_t * (c - c_wl - p_out^0.5 * comp.fluid.Solubility)
                 J_surf = comp.membrane.k_d * (c / comp.fluid.Solubility) -
                          comp.membrane.k_d * comp.membrane.K_S^2 * c_wl^2
                 return abs(J_mt - J_surf)
             end
-            res = optimize(eq_ms, [0.0], [c * (1 + 1e-4)], [c * 0.1], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-8))
-            cwl = Optim.minimizer(res)[1]
+            res = optimize(eq_ms, 0.0, c, Brent())
+            cwl = Optim.minimizer(res)
             comp.J_perm = comp.fluid.k_t * (c - cwl - p_out * comp.fluid.Solubility)
             return cwl
         end
@@ -479,17 +463,15 @@ function _get_flux_lm!(comp, c, W, H; c_guess, p_out)
         elseif H / W > 1000
             log_term = log((comp.fluid.d_Hyd/2 + comp.membrane.thick)/(comp.fluid.d_Hyd/2))
             denom    = comp.fluid.d_Hyd / 2 * log_term
-            function eq_sd(cv)
-                c_wl = cv[1]
+            function eq_sd(c_wl)
                 J_surf = comp.membrane.k_d * (c / comp.fluid.Solubility) -
                          comp.membrane.k_d * comp.membrane.K_S^2 * c_wl^2
                 J_diff = comp.membrane.D / denom *
                          (comp.membrane.K_S * (c_wl / comp.fluid.Solubility - p_out^0.5))
                 return abs(J_diff - J_surf)
             end
-            res = optimize(eq_sd, [1e-14], [c], [c_guess], Fminbox(NelderMead()),
-                           Optim.Options(g_tol=1e-8))
-            cw = Optim.minimizer(res)[1]
+            res = optimize(eq_sd, 1e-14, c, Brent())
+            cw = Optim.minimizer(res)
             log_term2 = log((comp.fluid.d_Hyd/2+comp.membrane.thick)/(comp.fluid.d_Hyd/2))
             comp.J_perm = comp.membrane.D / (comp.fluid.d_Hyd/2 * log_term2) *
                           (comp.membrane.K_S * (cw / comp.fluid.Solubility - p_out^0.5))

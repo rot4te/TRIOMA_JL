@@ -95,18 +95,14 @@ function get_c_out_GLC_lm(Z, R, G_l, G_gas, pl_in, T, p_t, K_S, pg_in, kla)
         c_out_max_reaction,
     )
 
-    function length_residual(c_out_v)
-        c_out_s = c_out_v[1]
+    function length_residual(c_out_s)
         pl_out_2 = c_out_s^2 / K_S^2
         z_guess = length_extractor_lm(R, G_l, G_gas, pl_in, pl_out_2, T, p_t, K_S, pg_in, kla; c_max=c_out_max)
         return abs(Z - z_guess)^2
     end
 
-    x0   = [c_out_max + (c_in - c_out_max) / 2]
-    lo   = [float(c_out_max)]
-    hi   = [float(c_in)]
-    res  = optimize(length_residual, lo, hi, x0, Fminbox(Optim.Powell()); options=Optim.Options(x_tol=1e-20, f_tol=1e-20, iterations=Int(1e8)))
-    c_out = Optim.minimizer(res)[1]
+    res  = optimize(length_residual, float(c_out_max), float(c_in), Brent())
+    c_out = Optim.minimizer(res)
     eff  = 1 - c_out / c_in
 
     L_cout = length_extractor_lm(R, G_l, G_gas, pl_in, c_out^2 / K_S^2, T, p_t, K_S, pg_in, kla)
@@ -181,18 +177,14 @@ function get_c_out_GLC_ms(Z, R, G_l, G_gas, pl_in, T, p_t, K_H, pg_in, kla)
         c_out_max_reaction,
     )
 
-    function length_residual(c_out_v)
-        c_out_s  = c_out_v[1]
+    function length_residual(c_out_s)
         pl_out_2 = c_out_s / K_H
         z_guess  = length_extractor_ms(R, G_l, G_gas, pl_in, pl_out_2, T, p_t, K_H, pg_in, kla; c_max=c_out_max)
         return abs(Z - z_guess)^2
     end
 
-    x0  = [c_out_max + (c_in - c_out_max) / 2]
-    lo  = [float(c_out_max)]
-    hi  = [float(c_in)]
-    res = optimize(length_residual, lo, hi, x0, Fminbox(Optim.Powell()); options=Optim.Options(x_tol=1e-20, f_tol=1e-20, iterations=Int(1e8)))
-    c_out = Optim.minimizer(res)[1]
+    res = optimize(length_residual, float(c_out_max), float(c_in), Brent())
+    c_out = Optim.minimizer(res)
     eff   = 1 - c_out / c_in
 
     L_cout = length_extractor_ms(R, G_l, G_gas, pl_in, c_out / K_H, T, p_t, K_H, pg_in, kla)
