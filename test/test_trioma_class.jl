@@ -1,10 +1,9 @@
-@testset "TriomaClass" begin
+@testset "update_attribute! and inspect" begin
 
   # --------------------------------------------------------------------------
-  # Helpers: concrete subtype for testing (Python uses duck-typed TriomaClass
-  # with dynamic attributes; Julia needs a concrete mutable struct)
+  # Helpers: concrete mutable struct for testing inspect and update_attribute!
   # --------------------------------------------------------------------------
-  mutable struct TestObj <: TriomaClass
+  mutable struct TestObj
     a   ::Union{Int, Nothing}
     b   ::Union{Int, Nothing}
     n_pipes::Union{Int, Nothing}
@@ -47,7 +46,7 @@
     @test occursin("a: 100", s)
   end
 
-  @testset "inspect - nested TriomaClass" begin
+  @testset "inspect - nested struct" begin
     child  = TestObj(value=999)
     parent = TestObj(value=50, child=child)
     out = IOBuffer()

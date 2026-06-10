@@ -9,8 +9,8 @@ module CircuitModule
 
 using ..TriomaTypes
 using ..PipeSubclasses
-using ..PAVModule
-import ..PAVModule: get_inventory!, estimate_cost!
+using ..PAVPipe
+import ..PAVPipe: get_inventory!, estimate_cost!
 using ..BreedingBlanketModule
 import ..BreedingBlanketModule: connect_to_component!
 using ..GasLiquidContactor
@@ -47,7 +47,7 @@ Fields:
 - `pumping_power` : total pumping power [W] (set by `get_circuit_pumping_power!`)
 - `cost`          : total estimated cost (set by `estimate_cost!`)
 """
-mutable struct Circuit <: TriomaClass
+mutable struct Circuit
     components    ::Vector{AnyComponent}
     closed        ::Bool
     eff           ::Union{Float64, Nothing}
@@ -269,7 +269,7 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    PAVModule.get_inventory!(circuit::Circuit; flag_an=true)
+    PAVPipe.get_inventory!(circuit::Circuit; flag_an=true)
 
 Sum the tritium inventory across all `Component` objects in the circuit.
 Stores the total in `circuit.inv` [mol].
@@ -331,7 +331,7 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    PAVModule.estimate_cost!(circuit::Circuit; metal_costs, fluid_costs) -> Float64
+    PAVPipe.estimate_cost!(circuit::Circuit; metal_costs, fluid_costs) -> Float64
 
 Estimate total fabrication cost across all `Component` objects in the circuit.
 `metal_costs` and `fluid_costs` must be indexable vectors aligned with

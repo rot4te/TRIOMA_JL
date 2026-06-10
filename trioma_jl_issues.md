@@ -1,10 +1,11 @@
 # TRIOMA.jl — Outstanding Issues and Julia/Python Differences
 
 *Prepared after the initial port from Python and a pass to make the test suite pass.
-Updated after simplification/refactoring pass on `PAV.jl`.*
+Updated after simplification/refactoring passes on `PAV.jl`, `Circuit.jl`, and `TriomaTypes.jl`.*
 
-*Final test state after refactoring: **283 passed, 1 @test\_broken (Bug 1 only), 0 failed, 0 errored**.*
-*Bugs 2 and 3 were resolved by the refactoring — see notes in each section below.*
+*Final test state: **277 passed, 1 @test\_broken (Bug 1 only), 0 failed, 0 errored**.*
+*Bugs 2 and 3 were resolved by the `PAV.jl` refactoring — see notes in each section below.*
+*`TriomaClass` abstract type removed; `TriomaTypes.jl` now uses a duck-typed `_is_nested` helper.*
 
 ---
 
@@ -326,6 +327,7 @@ retains the error. The test expected value for WireCoil `k_t` was updated accord
 | `TriomaModule` | `PAVModule` | Fixed during port |
 | `GasLiquidContactorModule` | `GasLiquidContactor` | Fixed during port |
 | `Component` (inner class of TriomaModule) | `Component` (exported from PAVModule) | Same |
+| `TriomaClass` (Python base class) | Removed — `_is_nested` helper used instead | Removed 2026-06 |
 
 ### Output suppression / logging
 
@@ -355,10 +357,10 @@ The Julia tests cover the same scenarios but do not use parametric fixtures or
 
 ### Tolerances
 
-Most tests that pass use `rtol=1e-3` (0.1%). A few GLC column-height tests were
-relaxed from `atol=1e-4` to `atol=1e-3` during the port because the Julia adaptive
-integrator and Brent optimizer converge to slightly different points than the Python
-fixed-order integrator and `scipy.optimize.minimize`.
+All floating-point physics comparisons use `rtol=1e-5`, chosen to accommodate the
+~5-sig-fig difference between Python's hardcoded constants (e.g. `R = 8.314`) and
+Julia's CODATA-derived values from `AtomicAndPhysicalConstants.jl`. Integer-valued
+results (e.g. recirculation flags, pipe counts) use exact `==` comparisons.
 
 ### Tests marked `@test_broken`
 

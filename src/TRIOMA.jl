@@ -23,7 +23,7 @@ module TRIOMA
 # Load submodules in dependency order
 # ---------------------------------------------------------------------------
 
-include("TriomaClass.jl")
+include("TriomaTypes.jl")
 include("Correlations.jl")
 include("PipeSubclasses.jl")
 include("Materials.jl")
@@ -46,7 +46,7 @@ using .MoltenSalts
 using .LiquidMetals
 using .ExtractorFunctions
 using .GasLiquidContactor
-using .PAVModule
+using .PAVPipe
 using .BreedingBlanketModule
 using .CircuitModule
 
@@ -55,7 +55,7 @@ using .CircuitModule
 # ---------------------------------------------------------------------------
 
 # --- Base infrastructure ---
-export TriomaClass, inspect, update_attribute!
+export inspect, update_attribute!
 
 # --- Correlations ---
 export Nu_SiederTate, Nu_Gnielinsky, Nu_DittusBoelter, f_Pethukov,

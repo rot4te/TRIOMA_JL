@@ -3,7 +3,6 @@
   # All of these should be accessible after `using TRIOMA`
 
   @testset "Core types importable" begin
-    @test TriomaClass       isa DataType
     @test Geometry          isa DataType
     @test Fluid             isa DataType
     @test Membrane          isa DataType

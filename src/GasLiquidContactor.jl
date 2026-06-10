@@ -5,7 +5,7 @@ Types and methods for Gas-Liquid Contactor (packed-column) components.
 """
 module GasLiquidContactor
 
-using ..TriomaTypes: TriomaClass, update_attribute!
+using ..TriomaTypes: update_attribute!
 using ..PipeSubclasses: Fluid, Membrane
 using ..ExtractorFunctions
 
@@ -25,7 +25,7 @@ Fields
 - `pg_out` : outlet tritium partial pressure [Pa] (default 0)
 - `p_tot`  : total column pressure [Pa] (default 100 000)
 """
-mutable struct GLC_Gas <: TriomaClass
+mutable struct GLC_Gas
     G_gas::Union{Float64,Nothing}
     pg_in::Float64
     pg_out::Float64
@@ -54,7 +54,7 @@ Fields
 - `G_L`     : liquid volumetric flow rate [m³/s]
 - `kla`     : overall mass-transfer coefficient × packing area [1/s]
 """
-mutable struct GLC <: TriomaClass
+mutable struct GLC
     H::Union{Float64,Nothing}
     R::Union{Float64,Nothing}
     L::Union{Float64,Nothing}
@@ -70,8 +70,7 @@ end
 
 function GLC(;
     H=nothing, R=nothing, L=nothing, c_in=nothing, c_out=nothing, eff=nothing,
-    fluid=nothing, membrane=nothing, GLC_gas=nothing,
-    T=nothing, G_L=nothing, kla=nothing
+    fluid=nothing, GLC_gas=nothing, T=nothing, G_L=nothing, kla=nothing
 )
     GLC(H, R, L, c_in, c_out, eff, fluid, GLC_gas, T, G_L, kla)
 end

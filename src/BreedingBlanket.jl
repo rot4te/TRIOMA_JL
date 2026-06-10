@@ -42,7 +42,7 @@ Fields:
 - `name`      : optional label string
 - `m_coolant` : coolant mass flow rate [kg/s] (computed by `get_flowrate!`)
 """
-mutable struct BreedingBlanket <: TriomaClass
+mutable struct BreedingBlanket
     c_in     ::Union{Float64, Nothing}
     c_out    ::Union{Float64, Nothing}
     Q        ::Union{Float64, Nothing}
@@ -111,7 +111,7 @@ end
     connect_to_component!(bb::BreedingBlanket, next)
 
 Set the inlet concentration of `next` to the outlet concentration of `bb`.
-`next` can be any `TriomaClass` subtype that has a `c_in` field.
+`next` can be any TRIOMA component that has a `c_in` field.
 """
 function connect_to_component!(bb::BreedingBlanket, next)
     next === nothing && throw(ArgumentError("next component cannot be nothing"))

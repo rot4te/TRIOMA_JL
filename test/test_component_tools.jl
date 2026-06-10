@@ -63,34 +63,35 @@
     @testset "use_analytical_efficiency" begin
       comp2 = make_ms_component()
       use_analytical_efficiency!(comp2)
-      @test comp2.eff ≈ 0.99871670123992 rtol=1e-4
+      @test comp2.eff ≈ 0.99871670123992 rtol=1e-5
     end
 
     @testset "analytical_efficiency" begin
       comp2 = make_ms_component()
       analytical_efficiency!(comp2)
-      @test comp2.eff_an ≈ 0.99871670123992 rtol=1e-4
+      @test comp2.eff_an ≈ 0.99871670123992 rtol=1e-5
     end
 
     @testset "get_efficiency" begin
       comp2 = make_ms_component()
       get_efficiency!(comp2)
-      @test comp2.eff ≈ 0.998984924629 rtol=1e-3
+      @test comp2.eff ≈ 0.998984924629 rtol=1e-5
     end
 
     @testset "get_flux" begin
       comp2 = make_ms_component()
       get_flux!(comp2, 0.3; c_guess=0.3)
       @test comp2.J_perm !== nothing
-      # Return value (wall concentration) — matches Python places=5
       cw = get_flux!(comp2, 0.3; c_guess=0.3)
-      @test cw ≈ 0.0014967 atol=1e-4
+      # Python tests J_perm ≈ 0.0014967 (places=5); Julia returns c_wl which agrees
+      # to ~5 sig figs. Using Julia's self-consistent value here.
+      @test cw ≈ 0.0014967739559019614 rtol=1e-5
     end
 
     @testset "get_global_HX_coeff" begin
       comp2 = make_ms_component()
       get_global_HX_coeff!(comp2; R_conv_sec=0.1)
-      @test comp2.U ≈ 2.9215784663 rtol=1e-4
+      @test comp2.U ≈ 2.9215784663 rtol=1e-5
     end
 
     @testset "efficiency_vs_analytical" begin
@@ -153,32 +154,32 @@
     @testset "use_analytical_efficiency" begin
       comp2 = make_lm_component()
       use_analytical_efficiency!(comp2)
-      @test comp2.eff ≈ 0.998295638580 rtol=1e-4
+      @test comp2.eff ≈ 0.998295638580 rtol=1e-5
     end
 
     @testset "analytical_efficiency - after clearing k_t" begin
       comp2 = make_lm_component()
       update_attribute!(comp2, "k_t", nothing)
       analytical_efficiency!(comp2)
-      @test comp2.eff_an ≈ 0.00053628139636452 rtol=1e-3
+      @test comp2.eff_an ≈ 0.00053628139636452 rtol=1e-5
     end
 
     @testset "get_efficiency" begin
       comp2 = make_lm_component()
       get_efficiency!(comp2; c_guess=comp2.c_in / 2)
-      @test comp2.eff ≈ 0.9986246 atol=1e-3
+      @test comp2.eff ≈ 0.9986246 rtol=1e-5
     end
 
     @testset "get_flux" begin
       comp2 = make_lm_component()
       cw = get_flux!(comp2, 0.3; c_guess=0.3)
-      @test cw ≈ 0.01314458525095 rtol=1e-3
+      @test cw ≈ 0.01314458525095 rtol=1e-5
     end
 
     @testset "get_global_HX_coeff" begin
       comp2 = make_lm_component()
       get_global_HX_coeff!(comp2; R_conv_sec=0.1)
-      @test comp2.U ≈ 2.9215784663 rtol=1e-4
+      @test comp2.U ≈ 2.9215784663 rtol=1e-5
     end
 
     @testset "efficiency_vs_analytical" begin
@@ -238,13 +239,13 @@
     @testset "component inventory (numerical)" begin
       comp2 = make_lm_component()
       get_inventory!(comp2; flag_an=false)
-      @test comp2.inv ≈ 0.0070080332665533665 atol=1e-4
+      @test comp2.inv ≈ 0.0070080332665533665 rtol=1e-5
     end
 
     @testset "pumping power" begin
       comp2 = make_lm_component()
       get_pumping_power!(comp2)
-      @test comp2.pumping_power ≈ 0.019029194163191265 rtol=1e-3
+      @test comp2.pumping_power ≈ 0.019029194163191265 rtol=1e-5
     end
 
     @testset "inspect runs without error" begin
@@ -271,22 +272,22 @@
 
     @testset "Arrhenius D and K_S computed at construction" begin
       comp = make_exotic_component()
-      @test comp.fluid.D    ≈ 3.984462016634033e-18 rtol=1e-3
-      @test comp.membrane.D ≈ 0.008358607447235438  rtol=1e-3
+      @test comp.fluid.D    ≈ 3.984462016634033e-18 rtol=1e-5
+      @test comp.membrane.D ≈ 0.008358607447235438  rtol=1e-5
     end
 
     @testset "update T — Arrhenius properties refresh" begin
       comp = make_exotic_component()
       update_attribute!(comp, "T", 999.0)
       @test comp.fluid.T    == 999.0
-      @test comp.membrane.D ≈ 0.12519232082575535  atol=1e-4
-      @test comp.fluid.D    ≈ 3.003229324075595e-12 rtol=1e-3
+      @test comp.membrane.D ≈ 0.12519232082575535  rtol=1e-5
+      @test comp.fluid.D    ≈ 3.003229324075595e-12 rtol=1e-5
     end
 
     @testset "negative recirculation scales U0" begin
       comp = make_exotic_component()
-      @test comp.fluid.recirculation ≈ -0.5  atol=1e-10
-      @test comp.fluid.U0            ≈  0.1  atol=1e-10
+      @test comp.fluid.recirculation == -0.5
+      @test comp.fluid.U0            == 0.1
     end
 
     @testset "WireCoil k_t correlation" begin
@@ -295,41 +296,41 @@
       use_analytical_efficiency!(comp)
       # Old value 3.74e-11 was computed with pitch as Sherwood characteristic length,
       # which is physically incorrect (Sh is always defined using d_hyd as char. length).
-      @test comp.fluid.k_t ≈ 1.716729981847424e-10 rtol=1e-3
+      @test comp.fluid.k_t ≈ 1.716729981847424e-10 rtol=1e-5
       # CustomTurbulator falls back to k_t already set
       ct = CustomTurbulator(a=1.0, b=1.0, c=1.0)
       comp.geometry.turbulator = ct
       update_attribute!(comp, "k_t", nothing)
       use_analytical_efficiency!(comp)
-      @test comp.fluid.k_t ≈ 0.1 rtol=1e-4
+      @test comp.fluid.k_t ≈ 0.1 rtol=1e-5
     end
 
     @testset "outlet_c_comp with bypass recirculation" begin
       comp = make_exotic_component()
       outlet_c_comp!(comp)
-      @test comp.c_out ≈ 0.3 atol=1e-8
+      @test comp.c_out == 0.3
     end
 
     @testset "outlet_c_comp with positive recirculation" begin
       comp = make_exotic_component()
       update_attribute!(comp, "recirculation", 0.5)
       outlet_c_comp!(comp)
-      @test comp.c_out ≈ 5.399292025261743e-07 rtol=1e-2
+      @test comp.c_out ≈ 5.399292025261743e-07 rtol=1e-5
     end
 
     @testset "total flowrate" begin
       comp = make_exotic_component()
       get_total_flowrate(comp)
-      @test comp.flowrate ≈ 0.007068583470577035 rtol=1e-4
+      @test comp.flowrate ≈ 0.007068583470577035 rtol=1e-5
     end
 
     @testset "component volumes" begin
       comp = make_exotic_component()
       define_component_volumes!(comp)
-      @test comp.fluid.V    ≈ 0.07068583470577035  rtol=1e-4
-      @test comp.membrane.V ≈ 0.0004704534998750733 rtol=1e-3
+      @test comp.fluid.V    ≈ 0.07068583470577035  rtol=1e-5
+      @test comp.membrane.V ≈ 0.0004704534998750733 rtol=1e-5
       total = comp.fluid.V + comp.membrane.V
-      @test total ≈ 0.07115628820564542 rtol=1e-4
+      @test total ≈ 0.07115628820564542 rtol=1e-5
     end
   end
 
@@ -394,13 +395,13 @@
     @testset "get_cout" begin
       bb = make_bb()
       get_cout!(bb; print_var=true)
-      @test bb.c_out ≈ 0.0001473990666223908 rtol=1e-3
+      @test bb.c_out ≈ 0.0001473990666223908 rtol=1e-5
     end
 
     @testset "get_flowrate" begin
       bb = make_bb()
       get_flowrate!(bb)
-      @test bb.m_coolant ≈ 2095.5574182607 rtol=1e-3
+      @test bb.m_coolant ≈ 2095.5574182607 rtol=1e-5
     end
 
     @testset "update_attribute - direct and nested" begin
@@ -466,7 +467,7 @@
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                   k_t=nothing, U0=0.2, d_Hyd=0.3)
       get_kt!(fl2)
-      @test fl2.k_t ≈ 8.046408367835323e-06 rtol=1e-6
+      @test fl2.k_t ≈ 8.046408367835323e-06 rtol=1e-5
     end
 
     @testset "get_kt! - laminar flow" begin
@@ -542,7 +543,7 @@
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mass transport limited"
     get_flux!(comp, 0.3; c_guess=0.3)
-    @test comp.J_perm ≈ -9.6149466095734e-05 atol=1e-4
+    @test comp.J_perm ≈ -9.6149466095734e-05 rtol=1e-5
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
     @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
@@ -576,7 +577,7 @@
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Mass transport limited"
     get_flux!(comp, 0.3; c_guess=0.3)
-    @test comp.J_perm ≈ -4.80747330478670e-05 atol=1e-4
+    @test comp.J_perm ≈ -4.80747330478670e-05 rtol=1e-5
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
     @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
@@ -632,7 +633,7 @@
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Diffusion Limited"
     cw = get_flux!(comp, 0.3)
-    @test cw ≈ 0.29990976788036605 atol=1e-4
+    @test cw ≈ 0.29990976788036605 rtol=1e-5
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
     @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
@@ -663,23 +664,25 @@
     glc  = GLC(H=Z, R=R_col, c_in=1e-2, c_out=9e-3,
                fluid=fl, GLC_gas=gas, T=T, G_L=Q_l)
 
+    # Expected kla computed from Julia's R_const (8.31446... vs Python's hardcoded 8.314).
+    # LM kla agrees with Python to 2e-6 relative; rtol=1e-5 covers this.
     @testset "get_kla_from_cout" begin
       get_kla_from_cout!(glc)
-      @test glc.kla ≈ 1.2850594291115214e-05 atol=1e-5
+      @test glc.kla ≈ 1.2850620482865885e-5 rtol=1e-5
     end
 
     @testset "get_c_out" begin
       glc2 = GLC(H=Z, R=R_col, c_in=1e-2, fluid=fl, GLC_gas=gas, T=T, G_L=Q_l,
-                 kla=1.2850594291115214e-05)
+                 kla=1.2850620482865885e-5)
       get_c_out!(glc2)
-      @test glc2.c_out ≈ 0.009 atol=1e-4
+      @test glc2.c_out ≈ 0.009 rtol=1e-5
     end
 
     @testset "get_z_from_eff" begin
       glc3 = GLC(H=Z, R=R_col, c_in=1e-2, c_out=9e-3, fluid=fl, GLC_gas=gas, T=T, G_L=Q_l,
-                 kla=1.2850594291115214e-05)
+                 kla=1.2850620482865885e-5)
       z = get_z_from_eff(glc3)
-      @test z ≈ 0.6 atol=1e-3
+      @test z ≈ 0.6 rtol=1e-5
     end
   end
 
@@ -695,23 +698,25 @@
     glc  = GLC(H=Z, R=R_col, c_in=1e-2, c_out=9e-3,
                fluid=fl, GLC_gas=gas, T=T, G_L=Q_l)
 
+    # MS kla is more sensitive to R_const than LM (7.5e-4 relative diff vs Python's 8.314).
+    # Expected value computed with Julia's R_const = 8.31446...
     @testset "get_kla_from_cout" begin
       get_kla_from_cout!(glc)
-      @test glc.kla ≈ 2.9765872207306292e-05 atol=1e-5
+      @test glc.kla ≈ 2.9788115080255035e-5 rtol=1e-5
     end
 
     @testset "get_c_out" begin
       glc2 = GLC(H=Z, R=R_col, c_in=1e-2, fluid=fl, GLC_gas=gas, T=T, G_L=Q_l,
-                 kla=2.9765872207306292e-05)
+                 kla=2.9788115080255035e-5)
       get_c_out!(glc2)
-      @test glc2.c_out ≈ 0.009 atol=1e-4
+      @test glc2.c_out ≈ 0.009 rtol=1e-5
     end
 
     @testset "get_z_from_eff" begin
       glc3 = GLC(H=Z, R=R_col, c_in=1e-2, c_out=9e-3, fluid=fl, GLC_gas=gas, T=T, G_L=Q_l,
-                 kla=2.9765872207306292e-05)
+                 kla=2.9788115080255035e-5)
       z = get_z_from_eff(glc3)
-      @test z ≈ 0.6 atol=1e-3
+      @test z ≈ 0.6 rtol=1e-5
     end
   end
 

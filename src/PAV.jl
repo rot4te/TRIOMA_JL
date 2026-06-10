@@ -1,5 +1,5 @@
 """
-    PAVModule
+    PAVPipe
 
 Permeation Against Vacuum (PAV) pipe component: the core building block of
 TRIOMA's outer fuel cycle model.
@@ -13,7 +13,7 @@ covering:
 - Tritium inventory in fluid and membrane
 - Heat-exchanger overall coefficient
 """
-module PAVModule
+module PAVPipe
 
 using ..TriomaTypes
 import ..TriomaTypes: update_attribute!
@@ -74,7 +74,7 @@ derived quantities are written back by the calculation functions.
 - `loss`      : if `true`, this component counts as a loss pipe in circuit analysis
 - `p_out`     : downstream tritium partial pressure [Pa] (default 1e-15, near vacuum)
 """
-mutable struct Component <: TriomaClass
+mutable struct Component
     geometry      ::Union{Geometry, Nothing}
     c_in          ::Union{Float64, Nothing}
     c_out         ::Union{Float64, Nothing}
@@ -203,7 +203,7 @@ function update_attribute!(comp::Component, attr_name, new_value)
         update_T_prop!(comp)
         return
     end
-    invoke(update_attribute!, Tuple{TriomaClass, Any, Any}, comp, attr_name, new_value)
+    invoke(update_attribute!, Tuple{Any, Any, Any}, comp, attr_name, new_value)
 end
 
 # ---------------------------------------------------------------------------
@@ -797,39 +797,11 @@ end
 #
 # where r_out = r_in + thick = D/2 + thick.
 
-"""
-Compute the integrand of the 2-D solid inventory integral at (r, L) for LM.
-
-Returns c_m(r,L) · 2πr so that integrating over r gives the cross-sectional
-contribution and integrating over L gives the total per-pipe inventory.
-"""
-function _solid_integrand_lm(comp::Component, r::Float64, L::Float64,
-                              p_out::Float64)::Float64
-    z     = _lm_zeta(comp)
-    L_ch  = _lm_L_char(comp)
-    r_in  = comp.fluid.d_Hyd / 2
-    r_out = r_in + comp.membrane.thick
-    c_ext = p_out^0.5 * comp.membrane.K_S
-    # wall concentration: equilibrium at inner surface from fluid side
-    c_w   = comp.c_in * comp.membrane.K_S / (comp.fluid.Solubility * (z + 1)) *
-            exp(L_ch * L) + c_ext
-    return (-(c_w - c_ext) * log(r / r_out) / log(r_out / r_in) + c_ext) * 2π * r
-end
-
-"""Compute the integrand of the 2-D solid inventory integral at (r, L) for MS."""
-function _solid_integrand_ms(comp::Component, r::Float64, L::Float64,
-                              p_out::Float64)::Float64
-    α    = _ms_alpha(comp)
-    xi_l = α / comp.c_in
-    tau  = 4 * comp.fluid.k_t * L / (comp.fluid.U0 * comp.fluid.d_Hyd)
-    beta = (1/xi_l + 1)^0.5 + log((1/xi_l + 1)^0.5 - 1)
-    w    = _lambertw_safe(beta - tau - 1.0)
-    r_in  = comp.fluid.d_Hyd / 2
-    r_out = r_in + comp.membrane.thick
-    c_ext = p_out^0.5 * comp.membrane.K_S
-    return (-log(r / r_out) / log(r_out / r_in) *
-            ((α / comp.fluid.Solubility)^0.5 * w * comp.membrane.K_S - c_ext) +
-            c_ext) * 2π * r
+# Closed-form radial integral of the log-profile shape function:
+# ∫_r_in^r_out (−log(r/r_out) / log(r_out/r_in)) · 2πr dr
+# Antiderivative: ifun(r) = r²/4 · (2·log(r/r_out) − 1)  →  d/dr[ifun] = r·log(r/r_out)
+_radial_log_integral(r_in, r_out) = let ifun(r) = r^2/4 * (2*log(r/r_out) - 1)
+    2π / log(r_out/r_in) * (ifun(r_in) - ifun(r_out))
 end
 
 # ---------------------------------------------------------------------------
@@ -839,8 +811,14 @@ end
 """
     get_solid_inventory!(comp; p_out=0.0, flag_an=false) -> inv [mol]
 
-Membrane (solid) tritium inventory. Default: numerical 2-D integration using
-`quadgk`. Pass `flag_an=true` to use the analytical formula instead.
+Membrane (solid) tritium inventory. Default: 1-D numerical integration (single
+`quadgk` over the pipe length after analytically evaluating the radial integral).
+Pass `flag_an=true` to use the closed-form formula instead.
+
+The concentration profile through the membrane wall is:
+    c_m(r,L) = (−log(r/r_out)/log(r_out/r_in)) · (c_wl(L) − c_ext) + c_ext
+The r-integral of c_m(r,L)·2πr has the closed form R_shape·(c_wl−c_ext) + c_ext·π(r_out²−r_in²),
+reducing the 2-D problem to a single 1-D quadgk over L.
 
 Stores the result in `comp.membrane.inv`.
 """
@@ -852,13 +830,29 @@ function get_solid_inventory!(comp::Component;
 
     r_in  = comp.fluid.d_Hyd / 2
     r_out = r_in + comp.membrane.thick
+    c_ext = p_out^0.5 * comp.membrane.K_S
 
-    integrand(r, L) = comp.fluid.MS ?
-        _solid_integrand_ms(comp, r, L, p_out) :
-        _solid_integrand_lm(comp, r, L, p_out)
+    # Closed-form radial integral — constants hoisted outside quadgk
+    R_shape    = _radial_log_integral(r_in, r_out)
+    r_cross    = π * (r_out^2 - r_in^2)   # cross-sectional annular area
 
-    result, _ = quadgk(r -> quadgk(L -> integrand(r, L), 0.0, comp.geometry.L)[1],
-                       r_in, r_out)
+    # Wall-concentration closure: hoist all L-independent constants
+    cwl = if comp.fluid.MS
+        α         = _ms_alpha(comp)
+        xi_l      = α / comp.c_in
+        beta      = (1/xi_l + 1)^0.5 + log((1/xi_l + 1)^0.5 - 1)
+        tau_coef  = 4 * comp.fluid.k_t / (comp.fluid.U0 * comp.fluid.d_Hyd)
+        wl_scale  = (α / comp.fluid.Solubility)^0.5 * comp.membrane.K_S
+        L -> wl_scale * _lambertw_safe(beta - tau_coef * L - 1.0) + c_ext
+    else
+        z         = _lm_zeta(comp)
+        L_ch      = _lm_L_char(comp)
+        A_lm      = comp.c_in * comp.membrane.K_S / (comp.fluid.Solubility * (z + 1))
+        L -> A_lm * exp(L_ch * L) + c_ext
+    end
+
+    result, _ = quadgk(L -> R_shape * (cwl(L) - c_ext) + c_ext * r_cross,
+                       0.0, comp.geometry.L)
     comp.membrane.inv = result * comp.geometry.n_pipes
     isnan(comp.membrane.inv) && println("Error: Inventory calculation failed")
     return comp.membrane.inv
@@ -985,4 +979,4 @@ function get_inventory!(comp::Component; flag_an::Bool=true, p_out::Float64=0.0)
     comp.inv = comp.fluid.inv + comp.membrane.inv
 end
 
-end # module PAVModule
+end # module PAVPipe
