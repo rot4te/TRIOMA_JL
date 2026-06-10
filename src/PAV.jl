@@ -641,23 +641,25 @@ end
 # ---------------------------------------------------------------------------
 
 """
-    get_flux!(comp, c; c_guess=1e-9, p_out=1e-15) -> c_wl
+    get_flux!(comp, c; c_guess=1e-9, p_out=1e-15) -> J_perm
 
-Compute the permeation flux `comp.J_perm` [mol/m²/s] at bulk concentration `c`
-and return the wall concentration for use as the initial guess in the next step.
+Compute the local permeation flux `J_perm` [mol/m²/s] at bulk concentration `c`,
+store it in `comp.J_perm`, and return it.
 
 Dispatches on `comp.fluid.MS` and the dimensionless regime parameters H and W.
-Calls `get_adimensionals!` internally.
+Calls `get_adimensionals!` internally. Sign convention: J_perm < 0 means tritium
+leaves the fluid (extraction toward vacuum side).
 """
 function get_flux!(comp::Component, c::Float64;
                    c_guess::Float64=1e-9, p_out::Float64=1e-15)::Float64
     get_adimensionals!(comp)
     W = comp.W; H = comp.H
     if comp.fluid.MS
-        return _get_flux_ms!(comp, c, W, H; c_guess=c_guess, p_out=p_out)
+        _get_flux_ms!(comp, c, W, H; c_guess=c_guess, p_out=p_out)
     else
-        return _get_flux_lm!(comp, c, W, H; c_guess=c_guess, p_out=p_out)
+        _get_flux_lm!(comp, c, W, H; c_guess=c_guess, p_out=p_out)
     end
+    return comp.J_perm
 end
 
 # ---------------------------------------------------------------------------
@@ -670,8 +672,8 @@ end
 Numerically integrate the tritium concentration profile along the pipe length
 and store the extraction efficiency in `comp.eff`.
 
-Uses 100 uniform axial steps. At each step `get_flux!` is called to compute
-`J_perm`, and the concentration is advanced using the plug-flow mass balance:
+Uses 100 uniform axial steps. At each step the local flux is computed and the
+concentration is advanced using the plug-flow mass balance:
 
   Δc = f_H₂ · J_perm · (4 / U₀ / d_H) · ΔL
 
@@ -692,6 +694,12 @@ function get_efficiency!(comp::Component;
     f_H2  = comp.fluid.MS ? 0.5 : 1.0
     cg    = c_guess !== nothing ? c_guess : Float64(comp.c_in)
 
+    # Compute H and W once outside the loop; use private helpers directly so
+    # that the returned c_wl (inner wall concentration) serves as the warm-start
+    # guess for the next axial step without interfering with get_flux!'s return value.
+    get_adimensionals!(comp)
+    W = comp.W; H = comp.H
+
     for i in eachindex(L_vec)
         if i == 1
             c_vec[1] = Float64(comp.c_in)
@@ -699,7 +707,11 @@ function get_efficiency!(comp::Component;
             c_vec[i] = c_vec[i-1] + f_H2 * comp.J_perm * 4 * dl /
                        (comp.fluid.U0 * comp.fluid.d_Hyd)
         end
-        cg = get_flux!(comp, c_vec[i]; c_guess=cg, p_out=p_out)
+        cg = if comp.fluid.MS
+            _get_flux_ms!(comp, c_vec[i], W, H; c_guess=cg, p_out=p_out)
+        else
+            _get_flux_lm!(comp, c_vec[i], W, H; c_guess=cg, p_out=p_out)
+        end
     end
     comp.eff = (comp.c_in - c_vec[end]) / comp.c_in
 end

@@ -1,11 +1,15 @@
 # TRIOMA.jl — Outstanding Issues and Julia/Python Differences
 
 *Prepared after the initial port from Python and a pass to make the test suite pass.
-Updated after simplification/refactoring passes on `PAV.jl`, `Circuit.jl`, and `TriomaTypes.jl`.*
+Updated after simplification/refactoring passes on `PAV.jl`, `Circuit.jl`, `TriomaTypes.jl`,
+and a dead-code removal pass.*
 
 *Final test state: **277 passed, 1 @test\_broken (Bug 1 only), 0 failed, 0 errored**.*
 *Bugs 2 and 3 were resolved by the `PAV.jl` refactoring — see notes in each section below.*
 *`TriomaClass` abstract type removed; `TriomaTypes.jl` now uses a duck-typed `_is_nested` helper.*
+*`PAVComponent.jl` deleted (dead code). Solid inventory double integral replaced by 1-D `quadgk`
+after analytically evaluating the radial log-profile integral (`_radial_log_integral`).*
+*See `tests.md` for a full derivation of each test from the Python package.*
 
 ---
 

@@ -7,3 +7,5 @@ Manifest.toml
 *.DS_Store
 
 *.ipynb
+
+.claude

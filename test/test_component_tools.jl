@@ -80,12 +80,11 @@
 
     @testset "get_flux" begin
       comp2 = make_ms_component()
-      get_flux!(comp2, 0.3; c_guess=0.3)
-      @test comp2.J_perm !== nothing
-      cw = get_flux!(comp2, 0.3; c_guess=0.3)
-      # Python tests J_perm ≈ 0.0014967 (places=5); Julia returns c_wl which agrees
-      # to ~5 sig figs. Using Julia's self-consistent value here.
-      @test cw ≈ 0.0014967739559019614 rtol=1e-5
+      # Python's get_flux() returned c_wl (≈0.0014967), not J_perm.
+      # Julia's get_flux! correctly returns J_perm.
+      jperm = get_flux!(comp2, 0.3; c_guess=0.3)
+      @test jperm ≈ -0.059700645208819604 rtol=1e-5
+      @test comp2.J_perm === jperm
     end
 
     @testset "get_global_HX_coeff" begin
@@ -172,8 +171,9 @@
 
     @testset "get_flux" begin
       comp2 = make_lm_component()
-      cw = get_flux!(comp2, 0.3; c_guess=0.3)
-      @test cw ≈ 0.01314458525095 rtol=1e-5
+      jperm = get_flux!(comp2, 0.3; c_guess=0.3)
+      @test jperm ≈ -0.028685539953802155 rtol=1e-5
+      @test comp2.J_perm === jperm
     end
 
     @testset "get_global_HX_coeff" begin
@@ -632,8 +632,8 @@
     mem   = Membrane(k_d=1e7, D=1e-9, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Diffusion Limited"
-    cw = get_flux!(comp, 0.3)
-    @test cw ≈ 0.29990976788036605 rtol=1e-5
+    jperm = get_flux!(comp, 0.3)
+    @test jperm ≈ -2.5960851589349628e-6 rtol=1e-5
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
     @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
