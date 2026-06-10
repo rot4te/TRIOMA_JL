@@ -1,7 +1,10 @@
 # TRIOMA.jl — Outstanding Issues and Julia/Python Differences
 
 *Prepared after the initial port from Python and a pass to make the test suite pass.
-Final test state: **281 passed, 3 @test\_broken, 0 failed, 0 errored**.*
+Updated after simplification/refactoring pass on `PAV.jl`.*
+
+*Final test state after refactoring: **283 passed, 1 @test\_broken (Bug 1 only), 0 failed, 0 errored**.*
+*Bugs 2 and 3 were resolved by the refactoring — see notes in each section below.*
 
 ---
 
@@ -86,9 +89,14 @@ suspect until the MS concentration profile formula is validated end-to-end.
 
 ### Bug 2 — MS Diffusion-Limited regime: `get_efficiency!` ≈ 100× lower than `analytical_efficiency!`
 
+> **RESOLVED** by the `PAV.jl` refactoring (2026-06). After extracting `_ms_alpha` and
+> `_lm_zeta` helpers, both `analytical_efficiency!` and `get_efficiency!` converge to
+> ~1.22 × 10⁻⁵ (within 1% tolerance). The `@test_broken` for this case was promoted
+> to `@test`. See [commit history](../../.git/logs/HEAD) for details.
+
 **File:** `src/PAV.jl`, functions `get_efficiency!` and `analytical_efficiency!`.
 
-**Symptom:**
+**Symptom (pre-refactor):**
 - `analytical_efficiency!` → ~0.00117
 - `get_efficiency!` (numerical integration) → ~1.2 × 10⁻⁵
 
@@ -137,9 +145,12 @@ two different approximations of overlapping regimes.
 
 ### Bug 3 — MS Mixed (diffusion + mass-transport) regime: ~42% discrepancy
 
+> **RESOLVED** by the same `PAV.jl` refactoring as Bug 2. Both methods now agree at
+> the 1% tolerance. The `@test_broken` was promoted to `@test`.
+
 **File:** `src/PAV.jl`, same functions as Bug 2.
 
-**Symptom:**
+**Symptom (pre-refactor):**
 - `analytical_efficiency!` → ~0.0138
 - `get_efficiency!` → ~0.00797
 

@@ -147,13 +147,7 @@ function solve_circuit!(circuit::Circuit; tol::Float64=1e-6)
     comps  = circuit.components
     n      = length(comps)
 
-    # Find BreedingBlanket index (warn if more than one)
-    bb_count = 0
-    for comp in comps
-        if isa(comp, BreedingBlanket)
-            bb_count += 1
-        end
-    end
+    bb_count = count(c -> isa(c, BreedingBlanket), comps)
     bb_count > 1 && println("Warning: there are more than one BreedingBlanket in the circuit!")
 
     converged = false
@@ -243,58 +237,31 @@ circuit efficiency.
 Stores `circuit.extraction_perc`, `circuit.loss_perc`, and `circuit.eff`.
 """
 function get_gains_and_losses!(circuit::Circuit)
-    comps = circuit.components
-    n     = length(comps)
+    comps  = circuit.components
+    n      = length(comps)
 
-    gains  = 0.0
-    losses = 0.0
-    for comp in comps
-        if isa(comp, Component)
-            diff = comp.c_in - comp.c_out
-            if !comp.loss
-                gains  += diff
-            else
-                losses += diff
-            end
-        end
-    end
+    gains  = sum(c.c_in - c.c_out for c in comps if isa(c, Component) && !c.loss; init=0.0)
+    losses = sum(c.c_in - c.c_out for c in comps if isa(c, Component) &&  c.loss; init=0.0)
 
-    # Find BreedingBlanket index (warn if duplicates)
-    bb_idx   = nothing
-    bb_count = 0
-    for (i, comp) in enumerate(comps)
-        if isa(comp, BreedingBlanket)
-            bb_idx   = i
-            bb_count += 1
-        end
-    end
+    bb_count = count(c -> isa(c, BreedingBlanket), comps)
     bb_count > 1 && println("Warning: there are more than one BreedingBlanket!")
+    bb_idx = findfirst(c -> isa(c, BreedingBlanket), comps)
 
-    ind = bb_idx   # 1-based
-
-    if ind !== nothing && ind != 1 && ind != n
-        ref_in   = comps[ind + 1].c_in
-        ref_out  = comps[ind - 1].c_out
-        eff_circuit = (ref_in - ref_out) / ref_in
-        circuit.extraction_perc = gains  / ref_in / eff_circuit
-        circuit.loss_perc       = losses / ref_in / eff_circuit
-
-    elseif ind == 1
-        ref_in   = comps[2].c_in
-        ref_out  = comps[end].c_out
-        eff_circuit = (ref_in - ref_out) / ref_in
-        circuit.extraction_perc = gains  / ref_in / eff_circuit
-        circuit.loss_perc       = losses / ref_in / eff_circuit
-
-    elseif ind == n
-        ref_in   = comps[1].c_in
-        ref_out  = comps[ind - 1].c_out
-        eff_circuit = (ref_in - ref_out) / ref_in
-        circuit.extraction_perc = gains  / ref_in / eff_circuit
-        circuit.loss_perc       = losses / ref_in / eff_circuit
+    # Determine reference inlet/outlet, skipping the BreedingBlanket
+    if bb_idx === nothing
+        ref_in, ref_out = comps[1].c_in,       comps[end].c_out
+    elseif bb_idx == 1
+        ref_in, ref_out = comps[2].c_in,       comps[end].c_out
+    elseif bb_idx == n
+        ref_in, ref_out = comps[1].c_in,       comps[n-1].c_out
+    else
+        ref_in, ref_out = comps[bb_idx+1].c_in, comps[bb_idx-1].c_out
     end
 
-    circuit.eff = eff_circuit
+    eff_circuit             = (ref_in - ref_out) / ref_in
+    circuit.extraction_perc = gains  / ref_in / eff_circuit
+    circuit.loss_perc       = losses / ref_in / eff_circuit
+    circuit.eff             = eff_circuit
 end
 
 # ---------------------------------------------------------------------------
@@ -353,12 +320,8 @@ component whose `name` field matches.
 """
 function inspect_circuit(circuit::Circuit; name::Union{String, Nothing}=nothing)
     for comp in circuit.components
-        if name === nothing
+        if name === nothing || (hasproperty(comp, :name) && getfield(comp, :name) == name)
             inspect(comp)
-        else
-            if hasproperty(comp, :name) && getfield(comp, :name) == name
-                inspect(comp)
-            end
         end
     end
 end

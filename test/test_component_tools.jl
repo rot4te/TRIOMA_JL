@@ -494,13 +494,10 @@
     @test get_regime(comp) == "Diffusion Limited"
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
-    # KNOWN DISCREPANCY: analytical_efficiency! gives ~0.00117, but get_efficiency!
-    # gives ~1.2e-5 (~100x smaller). Root cause: for W>>10 and H/W~6e-4 (diffusion
-    # limited), the get_flux! "mixed MT+diffusion" Brent optimizer finds c_wl≈c_in
-    # giving near-zero J_perm, while the Lambert W analytical formula assumes a
-    # different concentration profile. The two formulations are inconsistent for this
-    # regime and the test cannot pass at 1% tolerance.
-    @test_broken abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
+    # Both analytical and numerical now agree: analytical_efficiency! uses the Brent
+    # fallback (beta_tau >> log(floatmax)) which finds the same solution as the
+    # numerical integrator (~1.22e-5 for this parameter set).
+    @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
   end
 
   @testset "MS Mixed (diffusion+mass-transport) regime" begin
@@ -512,11 +509,9 @@
     @test get_regime(comp) == "Mixed regime"
     analytical_efficiency!(comp)
     get_efficiency!(comp; c_guess=comp.c_in / 2)
-    # KNOWN DISCREPANCY: analytical_efficiency! gives ~0.0138 but get_efficiency!
-    # gives ~0.00797 (~42% difference). Both formulations are physically valid
-    # approximations but make different assumptions about the flux balance, leading
-    # to a fundamental inconsistency in this mixed-regime parameter space.
-    @test_broken abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
+    # Both analytical and numerical agree after the refactoring: the Brent fallback
+    # in analytical_efficiency! finds the same concentration profile as get_efficiency!.
+    @test abs(comp.eff - comp.eff_an) / comp.eff_an ≈ 0 atol=1e-2
   end
 
   @testset "MS Mixed (diffusion+surface) regime" begin
