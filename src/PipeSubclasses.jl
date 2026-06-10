@@ -6,8 +6,9 @@ sub-objects used by the Component type.
 """
 module PipeSubclasses
 
-using ..TriomaModule: TriomaClass, update_attribute!
+using ..TriomaTypes: update_attribute!
 using ..Correlations
+using AtomicAndPhysicalConstants: BOLTZMANN_k
 
 export Geometry, Fluid, Membrane, FluidMaterial, SolidMaterial,
        Turbulator, WireCoil, CustomTurbulator,
@@ -19,13 +20,13 @@ export Geometry, Fluid, Membrane, FluidMaterial, SolidMaterial,
 # ── Turbulators ────────────────────────────────────────────────────────────────
 
 """Base turbulator type."""
-mutable struct Turbulator <: TriomaClass
+mutable struct Turbulator
     turbulator_type::Union{String,Nothing}
 end
 Turbulator(; turbulator_type=nothing) = Turbulator(turbulator_type)
 
 """Wire-coil turbulator."""
-mutable struct WireCoil <: TriomaClass
+mutable struct WireCoil
     turbulator_type::String
     pitch::Union{Float64,Nothing}
 end
@@ -33,7 +34,7 @@ WireCoil(; pitch=nothing) = WireCoil("WireCoil", pitch)
 
 function k_t_correlation(t::WireCoil; Re, Sc, d_hyd, D)
     Sh = Re > 2030 ? 0.132 * Re^0.72 * Sc^0.37 * (t.pitch / d_hyd)^(-0.372) : 3.66
-    return Correlations.get_k_from_Sh(Sh, t.pitch, D)
+    return Correlations.get_k_from_Sh(Sh, d_hyd, D)
 end
 
 function h_t_correlation(t::WireCoil; Re, Pr, d_hyd, k)
@@ -42,7 +43,7 @@ function h_t_correlation(t::WireCoil; Re, Pr, d_hyd, k)
 end
 
 """Custom (user-defined power-law) turbulator."""
-mutable struct CustomTurbulator <: TriomaClass
+mutable struct CustomTurbulator
     turbulator_type::String
     a::Union{Float64,Nothing}
     b::Union{Float64,Nothing}
@@ -78,7 +79,7 @@ Fields
 - `n_pipes`  : number of parallel pipes (default 1)
 - `turbulator`: optional turbulator object
 """
-mutable struct Geometry <: TriomaClass
+mutable struct Geometry
     L::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
     thick::Union{Float64,Nothing}
@@ -101,7 +102,7 @@ get_total_volume(g::Geometry) = get_fluid_volume(g) + get_solid_volume(g)
 # ── FluidMaterial / SolidMaterial (simple property containers) ─────────────────
 
 """Physical properties of a fluid material at a given temperature."""
-mutable struct FluidMaterial <: TriomaClass
+mutable struct FluidMaterial
     T::Union{Float64,Nothing}
     D::Union{Float64,Nothing}          # tritium diffusivity [m²/s]
     Solubility::Union{Float64,Nothing} # Henry or Sievert constant
@@ -117,7 +118,7 @@ function FluidMaterial(; T=nothing, D=nothing, Solubility=nothing,
 end
 
 """Physical properties of a solid (membrane) material at a given temperature."""
-mutable struct SolidMaterial <: TriomaClass
+mutable struct SolidMaterial
     T::Union{Float64,Nothing}
     D::Union{Float64,Nothing}    # tritium diffusivity [m²/s]
     K_S::Union{Float64,Nothing}  # Sievert constant
@@ -128,7 +129,7 @@ SolidMaterial(; T=nothing, D=nothing, K_S=nothing, k=nothing) =
 
 # ── Fluid ──────────────────────────────────────────────────────────────────────
 
-const K_B_EV = 8.617333262145e-5   # Boltzmann constant [eV/K]
+const K_B_EV = BOLTZMANN_k   # Boltzmann constant [eV/K]
 
 """
     Fluid
@@ -138,7 +139,7 @@ Tritium-bearing fluid properties for transport analysis.
 Temperature-dependent diffusivity and solubility are computed automatically
 if Arrhenius parameters (`D_0`/`E_d` or `Solubility_0`/`E_s`) are provided.
 """
-mutable struct Fluid <: TriomaClass
+mutable struct Fluid
     T::Union{Float64,Nothing}
     MS::Bool
     D_0::Union{Float64,Nothing}
@@ -213,7 +214,7 @@ function get_kt!(fluid::Fluid; turbulator=nothing)
         println("k_t is already defined")
         return
     end
-    Re_val = Correlations.Re(; rho=fluid.rho, u=fluid.U0, L=fluid.d_Hyd, mu=fluid.mu)
+    Re_val = Correlations.Re(fluid.rho, fluid.U0, fluid.d_Hyd, fluid.mu)
     Sc_val = Correlations.Schmidt(fluid.D, fluid.mu, fluid.rho)
 
     if turbulator === nothing
@@ -244,7 +245,7 @@ Metallic membrane properties for hydrogen-isotope transport.
 Temperature-dependent `D` and `K_S` are evaluated from Arrhenius parameters
 (`D_0`/`E_d` and `K_S_0`/`E_S`) if provided.
 """
-mutable struct Membrane <: TriomaClass
+mutable struct Membrane
     T::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
     thick::Union{Float64,Nothing}
