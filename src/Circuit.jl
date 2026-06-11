@@ -97,9 +97,10 @@ Set `dst.c_in` equal to `src.c_out`. Works for any TRIOMA component pair.
 This is the generic fallback; typed methods for `BreedingBlanket` and `GLC`
 are defined in their own modules.
 """
-function connect_to_component!(src, dst)
+function connect_to_component!(src, dst)::Nothing
     dst === nothing && throw(ArgumentError("destination component cannot be nothing"))
     update_attribute!(dst, "c_in", src.c_out)
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -112,7 +113,7 @@ end
 Append a component to the circuit. If `component` is itself a `Circuit`,
 its contents are flattened in.
 """
-function add_component!(circuit::Circuit, component)
+function add_component!(circuit::Circuit, component)::Nothing
     if isa(component, Circuit)
         append!(circuit.components, component.components)
     elseif isa(component, AnyComponent)
@@ -121,6 +122,7 @@ function add_component!(circuit::Circuit, component)
         throw(ArgumentError(
             "Invalid component type: $(typeof(component))."))
     end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -143,7 +145,7 @@ the first component's inlet concentration is below `tol`.
 Note: the Python source warns when more than one `BreedingBlanket` is present;
 this translation preserves that warning.
 """
-function solve_circuit!(circuit::Circuit; tol::Float64=1e-6)
+function solve_circuit!(circuit::Circuit; tol::Float64=1e-6)::Nothing
     comps  = circuit.components
     n      = length(comps)
 
@@ -178,6 +180,7 @@ function solve_circuit!(circuit::Circuit; tol::Float64=1e-6)
         # Feed last outlet back to first inlet for next closed-loop iteration
         connect_to_component!(comps[end], comps[1])
     end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -193,7 +196,7 @@ relative to the concentration entering the first non-BB component.
 
 Stores the result in `circuit.eff`.
 """
-function get_eff_circuit!(circuit::Circuit)
+function get_eff_circuit!(circuit::Circuit)::Nothing
     comps = circuit.components
     n     = length(comps)
 
@@ -220,6 +223,7 @@ function get_eff_circuit!(circuit::Circuit)
 
     # Efficiency is measured from the first post-BB component
     circuit.eff = (comps[2].c_in - comps[end].c_out) / comps[2].c_in
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -236,7 +240,7 @@ circuit efficiency.
 
 Stores `circuit.extraction_perc`, `circuit.loss_perc`, and `circuit.eff`.
 """
-function get_gains_and_losses!(circuit::Circuit)
+function get_gains_and_losses!(circuit::Circuit)::Nothing
     comps  = circuit.components
     n      = length(comps)
 
@@ -262,6 +266,7 @@ function get_gains_and_losses!(circuit::Circuit)
     circuit.extraction_perc = gains  / ref_in / eff_circuit
     circuit.loss_perc       = losses / ref_in / eff_circuit
     circuit.eff             = eff_circuit
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -274,7 +279,7 @@ end
 Sum the tritium inventory across all `Component` objects in the circuit.
 Stores the total in `circuit.inv` [mol].
 """
-function get_inventory!(circuit::Circuit; flag_an::Bool=true)
+function get_inventory!(circuit::Circuit; flag_an::Bool=true)::Nothing
     total = 0.0
     for comp in circuit.components
         if isa(comp, Component)
@@ -283,6 +288,7 @@ function get_inventory!(circuit::Circuit; flag_an::Bool=true)
         end
     end
     circuit.inv = total
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -318,12 +324,13 @@ end
 Print all fields of each component. If `name` is provided, only print the
 component whose `name` field matches.
 """
-function inspect_circuit(circuit::Circuit; name::Union{String, Nothing}=nothing)
+function inspect_circuit(circuit::Circuit; name::Union{String, Nothing}=nothing)::Nothing
     for comp in circuit.components
         if name === nothing || (hasproperty(comp, :name) && getfield(comp, :name) == name)
             inspect(comp)
         end
     end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------

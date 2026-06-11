@@ -19,8 +19,7 @@ using ..TriomaTypes
 import ..TriomaTypes: update_attribute!
 using ..PipeSubclasses
 using ..Correlations
-using ..MoltenSalts
-using ..LiquidMetals
+using ..FusionCoolant
 using LambertW
 using QuadGK
 using Optim
@@ -129,12 +128,12 @@ cylindrical shell:  denom = r_in · ln(r_out / r_in)
 It appears in the denominator of every Fickian permeation-flux expression:
   J_diff = D_membrane / denom · K_S · (c_surface − c_equil)
 """
-_wall_denom(d_hyd::Float64, thick::Float64) =
+_wall_denom(d_hyd::Float64, thick::Float64)::Float64 =
     (d_hyd / 2) * log((d_hyd / 2 + thick) / (d_hyd / 2))
-_wall_denom(comp::Component) = _wall_denom(comp.fluid.d_Hyd, comp.membrane.thick)
+_wall_denom(comp::Component)::Float64 = _wall_denom(comp.fluid.d_Hyd, comp.membrane.thick)
 
 """Diffusion conductance of the membrane wall: G = D_m / wall_denom [m/s]."""
-_diff_conductance(comp::Component) = comp.membrane.D / _wall_denom(comp)
+_diff_conductance(comp::Component)::Float64 = comp.membrane.D / _wall_denom(comp)
 
 """
 LM Sievert permeability ratio ζ (zeta).
@@ -146,7 +145,7 @@ mass-transport resistance.
   ζ >> 1  →  mass-transport limited
   ζ << 1  →  diffusion limited
 """
-function _lm_zeta(comp::Component)
+function _lm_zeta(comp::Component)::Float64
     return comp.membrane.D * comp.membrane.K_S /
            (comp.fluid.k_t * comp.fluid.Solubility * _wall_denom(comp))
 end
@@ -159,7 +158,7 @@ where L_char < 0 for extraction.
 
   L_char = −ζ / (1 + ζ) · 4 k_t / (U₀ d_H)
 """
-function _lm_L_char(comp::Component)
+function _lm_L_char(comp::Component)::Float64
     z = _lm_zeta(comp)
     return -z / (1 + z) * 4 * comp.fluid.k_t / (comp.fluid.U0 * comp.fluid.d_Hyd)
 end
@@ -173,7 +172,7 @@ Characterises the ratio of membrane permeance squared to the product of the
 mass-transfer rate and the Henry constant. Used in the Lambert W analytical
 solution for molten-salt extraction efficiency.
 """
-function _ms_alpha(comp::Component)
+function _ms_alpha(comp::Component)::Float64
     d = _wall_denom(comp)
     return (comp.membrane.K_S * comp.membrane.D / (4 * comp.fluid.k_t * d))^2 /
            comp.fluid.Solubility
@@ -195,15 +194,16 @@ end
 # ---------------------------------------------------------------------------
 
 """Override: a temperature update is forwarded to fluid and membrane."""
-function update_attribute!(comp::Component, attr_name, new_value)
+function update_attribute!(comp::Component, attr_name, new_value)::Nothing
     attr = attr_name isa Symbol ? attr_name : Symbol(attr_name)
     if attr === :T
         comp.fluid    !== nothing && (comp.fluid.T    = Float64(new_value))
         comp.membrane !== nothing && (comp.membrane.T = Float64(new_value))
         update_T_prop!(comp)
-        return
+        return nothing
     end
     invoke(update_attribute!, Tuple{Any, Any, Any}, comp, attr_name, new_value)
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -211,9 +211,10 @@ end
 # ---------------------------------------------------------------------------
 
 """Re-evaluate temperature-dependent Arrhenius properties in fluid and membrane."""
-function update_T_prop!(comp::Component)
+function update_T_prop!(comp::Component)::Nothing
     comp.fluid    !== nothing && PipeSubclasses.update_T_prop!(comp.fluid)
     comp.membrane !== nothing && PipeSubclasses.update_T_prop!(comp.membrane)
+    return nothing
 end
 
 """
@@ -277,9 +278,10 @@ end
 Copy fluid and wall volumes from `comp.geometry` into `comp.fluid.V` and
 `comp.membrane.V`.
 """
-function define_component_volumes!(comp::Component)
+function define_component_volumes!(comp::Component)::Nothing
     comp.fluid.V    = get_fluid_volume(comp.geometry)
     comp.membrane.V = get_solid_volume(comp.geometry)
+    return nothing
 end
 
 """
@@ -318,12 +320,12 @@ function get_regime(comp::Component; print_var::Bool=false)::String
     comp.fluid.k_t === nothing &&
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
     if comp.fluid.MS
-        return MoltenSalts.get_regime_ms(;
+        return FusionCoolant.get_regime_ms(;
             k_d=comp.membrane.k_d, D=comp.membrane.D, thick=comp.membrane.thick,
             K_S=comp.membrane.K_S, c0=comp.c_in, k_t=comp.fluid.k_t,
             k_H=comp.fluid.Solubility, print_var=print_var)
     else
-        return LiquidMetals.get_regime_lm(;
+        return FusionCoolant.get_regime_lm(;
             D=comp.membrane.D, k_t=comp.fluid.k_t, K_S_S=comp.membrane.K_S,
             K_S_L=comp.fluid.Solubility, k_r=comp.membrane.k_r,
             thick=comp.membrane.thick, c0=comp.c_in, print_var=print_var)
@@ -345,20 +347,21 @@ For molten salts:
 
 For liquid metals, the analogous `W_lm` and partition parameter are used.
 """
-function get_adimensionals!(comp::Component)
+function get_adimensionals!(comp::Component)::Nothing
     comp.fluid.k_t === nothing &&
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
     if comp.fluid.MS
-        comp.H = MoltenSalts.H_ms(comp.fluid.k_t, comp.fluid.Solubility, comp.membrane.k_d)
-        comp.W = MoltenSalts.W_ms(comp.membrane.k_d, comp.membrane.D, comp.membrane.thick,
+        comp.H = FusionCoolant.H_ms(comp.fluid.k_t, comp.fluid.Solubility, comp.membrane.k_d)
+        comp.W = FusionCoolant.W_ms(comp.membrane.k_d, comp.membrane.D, comp.membrane.thick,
                                    comp.membrane.K_S, comp.c_in, comp.fluid.Solubility)
     else
-        comp.W = LiquidMetals.W_lm(comp.membrane.k_r, comp.membrane.D, comp.membrane.thick,
+        comp.W = FusionCoolant.W_lm(comp.membrane.k_r, comp.membrane.D, comp.membrane.thick,
                                     comp.membrane.K_S, comp.c_in, comp.fluid.Solubility)
-        comp.H = comp.W * LiquidMetals.partition_param_lm(comp.membrane.D, comp.fluid.k_t,
+        comp.H = comp.W * FusionCoolant.partition_param_lm(comp.membrane.D, comp.fluid.k_t,
                                                            comp.membrane.K_S, comp.fluid.Solubility,
                                                            comp.membrane.thick)
     end
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -381,7 +384,7 @@ parameter ζ = membrane diffusion resistance / MT resistance:
 
 Sets `comp.tau`, `comp.alpha`, `comp.xi` (MS) or `comp.zeta` (LM).
 """
-function analytical_efficiency!(comp::Component; p_out::Float64=1e-15)
+function analytical_efficiency!(comp::Component; p_out::Float64=1e-15)::Nothing
     comp.fluid.k_t === nothing &&
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
     comp.tau = 4.0 * comp.fluid.k_t * comp.geometry.L /
@@ -415,7 +418,7 @@ function analytical_efficiency!(comp::Component; p_out::Float64=1e-15)
                 hi = max(p_out * comp.fluid.Solubility, comp.c_in)
                 if abs(lo - hi) / hi < 1e-2
                     comp.eff_an = 1e-6
-                    return
+                    return nothing
                 end
                 function eq(cl)
                     lhs = (cl / comp.alpha + 1.0 + 2 * f)^0.5 +
@@ -437,6 +440,7 @@ function analytical_efficiency!(comp::Component; p_out::Float64=1e-15)
         comp.eff_an = (1.0 - exp(-comp.tau * comp.zeta / (1.0 + comp.zeta))) *
                       (1.0 - (p_out / p_in)^0.5)
     end
+    return nothing
 end
 
 """
@@ -444,9 +448,10 @@ end
 
 Convenience wrapper: compute `eff_an` and copy it into `comp.eff`.
 """
-function use_analytical_efficiency!(comp::Component; p_out::Float64=1e-15)
+function use_analytical_efficiency!(comp::Component; p_out::Float64=1e-15)::Nothing
     analytical_efficiency!(comp; p_out=p_out)
     comp.eff = comp.eff_an
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -683,9 +688,9 @@ T₂ molecule removes 2 dissolved T atoms) and `f_H₂ = 1.0` for liquid-metal
 """
 function get_efficiency!(comp::Component;
                          c_guess::Union{Float64,Nothing}=nothing,
-                         p_out::Float64=1e-15)
+                         p_out::Float64=1e-15)::Nothing
     if comp.c_in == 0
-        comp.c_out = 0.0; comp.eff = 0.0; return
+        comp.c_out = 0.0; comp.eff = 0.0; return nothing
     end
     L_vec = range(0, comp.geometry.L, length=100)
     dl    = step(L_vec)
@@ -714,6 +719,7 @@ function get_efficiency!(comp::Component;
         end
     end
     comp.eff = (comp.c_in - c_vec[end]) / comp.c_in
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -775,7 +781,7 @@ Combines the convective (fluid-side) and conductive (wall) resistances:
 `R_conv_sec` is the optional secondary-side convective resistance [m²K/W].
 Stores h_prim in `comp.fluid.h_coeff` and U in `comp.U`.
 """
-function get_global_HX_coeff!(comp::Component; R_conv_sec::Float64=0.0)
+function get_global_HX_coeff!(comp::Component; R_conv_sec::Float64=0.0)::Nothing
     R_cond = log((comp.fluid.d_Hyd + comp.membrane.thick) / comp.fluid.d_Hyd) /
              (2π * comp.membrane.k)
     Re_val = Correlations.Re(comp.fluid.rho, comp.fluid.U0, comp.fluid.d_Hyd, comp.fluid.mu)
@@ -795,6 +801,7 @@ function get_global_HX_coeff!(comp::Component; R_conv_sec::Float64=0.0)
     end
     comp.fluid.h_coeff = h_prim
     comp.U = 1.0 / (1.0 / h_prim + R_cond + R_conv_sec)
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -812,9 +819,10 @@ end
 # Closed-form radial integral of the log-profile shape function:
 # ∫_r_in^r_out (−log(r/r_out) / log(r_out/r_in)) · 2πr dr
 # Antiderivative: ifun(r) = r²/4 · (2·log(r/r_out) − 1)  →  d/dr[ifun] = r·log(r/r_out)
-_radial_log_integral(r_in, r_out) = let ifun(r) = r^2/4 * (2*log(r/r_out) - 1)
-    2π / log(r_out/r_in) * (ifun(r_in) - ifun(r_out))
-end
+_radial_log_integral(r_in::Float64, r_out::Float64)::Float64 =
+    let ifun(r) = r^2/4 * (2*log(r/r_out) - 1)
+        2π / log(r_out/r_in) * (ifun(r_in) - ifun(r_out))
+    end
 
 # ---------------------------------------------------------------------------
 # Solid inventory (membrane)
@@ -985,10 +993,11 @@ end
 
 Compute both solid and fluid inventories and store their sum in `comp.inv` [mol].
 """
-function get_inventory!(comp::Component; flag_an::Bool=true, p_out::Float64=0.0)
+function get_inventory!(comp::Component; flag_an::Bool=true, p_out::Float64=0.0)::Nothing
     get_solid_inventory!(comp; flag_an=flag_an, p_out=p_out)
     get_fluid_inventory!(comp; flag_an=flag_an, p_out=p_out)
     comp.inv = comp.fluid.inv + comp.membrane.inv
+    return nothing
 end
 
 end # module PAVPipe

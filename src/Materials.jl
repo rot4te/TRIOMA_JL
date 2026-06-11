@@ -19,7 +19,7 @@ const R_CONST = BOLTZMANN_k * J_PER_EV * AVOGADRO   # J / mol / K
 
 # ── Flibe ─────────────────────────────────────────────────────────────────────
 
-function Flibe(T::Real)
+function Flibe(T::Real)::FluidMaterial
     density(T)    = 2413 - 0.488 * T
     viscosity(T)  = 1.16e-4 * exp(3755 / T)
     H_diff(T)     = 9.3e-7 * exp(-42e3 / (R_CONST * T))
@@ -41,7 +41,7 @@ end
 
 # ── Sodium ────────────────────────────────────────────────────────────────────
 
-function Sodium(T::Real)
+function Sodium(T::Real)::FluidMaterial
     density(T)   = 219 + 275.32 * (1 - T / 2504.7) + 511.58 * (1 - T / 2503.7)^0.5
     viscosity(T) = exp(-6.4406 - 0.3958 * log(T) + 556.835 / T)
     H_diff(T)    = 2e-5 * exp(-49053 / (R_CONST * T))
@@ -62,7 +62,7 @@ end
 
 # ── LiPb ─────────────────────────────────────────────────────────────────────
 
-function LiPb(T::Real)
+function LiPb(T::Real)::FluidMaterial
     density(T)   = 9659.8  # TODO
     viscosity(T) = 1.0     # TODO
     H_diff(T)    = 1.0     # TODO
@@ -83,7 +83,7 @@ end
 
 # ── Steel ─────────────────────────────────────────────────────────────────────
 
-function Steel(T::Real)
+function Steel(T::Real)::SolidMaterial
     H_diff(T) = 5.81e-7 * exp(-66.3e3 / (R_CONST * T))
     K_S_val   = 1.0  # placeholder
 

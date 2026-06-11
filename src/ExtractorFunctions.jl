@@ -19,7 +19,8 @@ export calculate_gas_velocity,
 const R_CONST = BOLTZMANN_k * J_PER_EV * AVOGADRO   # J / mol / K
 
 """Gas superficial velocity in the packed column [m/s]."""
-function calculate_gas_velocity(G_gas, p_t, T, R)
+function calculate_gas_velocity(G_gas::Float64, p_t::Float64,
+                                 T::Float64, R::Float64)::Float64
     area  = π * R^2
     p_atm = 101325.0
     return G_gas / area / p_t * p_atm * T / 288.15
@@ -32,7 +33,9 @@ Number of transfer units (NTU) for liquid-metal systems.
 Integrates the driving-force equation between c_out and c_in.
 Returns the scalar integral value.
 """
-function NTU_lm(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in; c_max=0.0)
+function NTU_lm(R::Float64, G_l::Float64, G_gas::Float64, pl_in::Float64, pl_out::Float64,
+                T::Float64, p_t::Float64, K_S::Float64, pg_in::Float64;
+                c_max::Float64=0.0)::Float64
     area  = π * R^2
     u_l   = G_l / area
     u_g   = calculate_gas_velocity(G_gas, p_t, T, R)
@@ -58,7 +61,9 @@ function NTU_lm(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in; c_max=0.0)
 end
 
 """Liquid load B_l [m/h] and k_la [1/s] from column height Z (liquid-metal)."""
-function extractor_lm(Z, R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in)
+function extractor_lm(Z::Float64, R::Float64, G_l::Float64, G_gas::Float64,
+                      pl_in::Float64, pl_out::Float64, T::Float64, p_t::Float64,
+                      K_S::Float64, pg_in::Float64)::Tuple{Float64,Float64}
     area  = π * R^2
     B_l   = G_l / area * 3600
     u_l   = G_l / area
@@ -68,7 +73,10 @@ function extractor_lm(Z, R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in)
 end
 
 """Column height Z required for given kla (liquid-metal)."""
-function length_extractor_lm(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in, kla; c_max=0.0)
+function length_extractor_lm(R::Float64, G_l::Float64, G_gas::Float64,
+                              pl_in::Float64, pl_out::Float64, T::Float64, p_t::Float64,
+                              K_S::Float64, pg_in::Float64, kla::Float64;
+                              c_max::Float64=0.0)::Float64
     area  = π * R^2
     u_l   = G_l / area
     integ = NTU_lm(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_S, pg_in; c_max=c_max)
@@ -81,7 +89,9 @@ end
 Solve for outlet concentration (liquid-metal) given column height and kla.
 Returns `(c_out, efficiency)`.
 """
-function get_c_out_GLC_lm(Z, R, G_l, G_gas, pl_in, T, p_t, K_S, pg_in, kla)
+function get_c_out_GLC_lm(Z::Float64, R::Float64, G_l::Float64, G_gas::Float64,
+                           pl_in::Float64, T::Float64, p_t::Float64,
+                           K_S::Float64, pg_in::Float64, kla::Float64)::Tuple{Float64,Float64}
     u_l   = G_l / (π * R^2)
     c_in  = pl_in^0.5 * K_S
     area  = π * R^2
@@ -124,7 +134,9 @@ end
 """
 Number of transfer units (NTU) for molten-salt systems.
 """
-function NTU_ms(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in; c_max=0.0)
+function NTU_ms(R::Float64, G_l::Float64, G_gas::Float64, pl_in::Float64, pl_out::Float64,
+                T::Float64, p_t::Float64, K_H::Float64, pg_in::Float64;
+                c_max::Float64=0.0)::Float64
     area     = π * R^2
     u_l      = G_l / area
     c_in     = pl_in  * K_H
@@ -141,7 +153,9 @@ function NTU_ms(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in; c_max=0.0)
 end
 
 """Liquid load B_l [m/h] and k_la [1/s] from column height Z (molten-salt)."""
-function extractor_ms(Z, R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in)
+function extractor_ms(Z::Float64, R::Float64, G_l::Float64, G_gas::Float64,
+                      pl_in::Float64, pl_out::Float64, T::Float64, p_t::Float64,
+                      K_H::Float64, pg_in::Float64)::Tuple{Float64,Float64}
     area  = π * R^2
     B_l   = G_l / area * 3600
     u_l   = G_l / area
@@ -151,7 +165,10 @@ function extractor_ms(Z, R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in)
 end
 
 """Column height Z required for given kla (molten-salt)."""
-function length_extractor_ms(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in, kla; c_max=0.0)
+function length_extractor_ms(R::Float64, G_l::Float64, G_gas::Float64,
+                              pl_in::Float64, pl_out::Float64, T::Float64, p_t::Float64,
+                              K_H::Float64, pg_in::Float64, kla::Float64;
+                              c_max::Float64=0.0)::Float64
     area  = π * R^2
     u_l   = G_l / area
     integ = NTU_ms(R, G_l, G_gas, pl_in, pl_out, T, p_t, K_H, pg_in; c_max=c_max)
@@ -164,7 +181,9 @@ end
 Solve for outlet concentration (molten-salt) given column height and kla.
 Returns `(c_out, efficiency)`.
 """
-function get_c_out_GLC_ms(Z, R, G_l, G_gas, pl_in, T, p_t, K_H, pg_in, kla)
+function get_c_out_GLC_ms(Z::Float64, R::Float64, G_l::Float64, G_gas::Float64,
+                           pl_in::Float64, T::Float64, p_t::Float64,
+                           K_H::Float64, pg_in::Float64, kla::Float64)::Tuple{Float64,Float64}
     u_l  = G_l / (π * R^2)
     c_in = pl_in * K_H
     u_g  = calculate_gas_velocity(G_gas, p_t, T, R)
@@ -206,7 +225,8 @@ end
 """
 Liquid-film mass transfer coefficient for a packed column (Onda correlation).
 """
-function pack_corr(a, d, D, eta, v)
+function pack_corr(a::Float64, d::Float64, D::Float64,
+                   eta::Float64, v::Float64)::Float64
     k_l = 0.0051 * (v / eta / a)^(2/3) * (D / eta)^0.5 * (a * d)^0.4 * (1 / eta / 9.81)^(-1/3)
     return k_l
 end
@@ -217,7 +237,8 @@ Sherwood-based k_l for packed column with Raschig rings.
 Warning: verification of this correlation is noted as incomplete in the
 original Python source.
 """
-function corr_packed(Re, Sc, d, rho_L, mu_L, L, D)
+function corr_packed(Re::Float64, Sc::Float64, d::Float64, rho_L::Float64,
+                     mu_L::Float64, L::Float64, D::Float64)::Float64
     beta = 0.32  # Raschig rings (0.25 for some references)
     g    = 9.81
     Sh   = beta * Re^0.59 * Sc^0.5 * (d^3 * g * rho_L^2 / mu_L^2)^0.17

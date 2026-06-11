@@ -83,7 +83,7 @@ end
 Compute `glc.c_out` and `glc.eff` from current state.
 Dispatches on `glc.fluid.MS` (molten salt vs liquid metal).
 """
-function get_c_out!(glc::GLC)
+function get_c_out!(glc::GLC)::Nothing
     if !glc.fluid.MS
         c_out, eff = ExtractorFunctions.get_c_out_GLC_lm(
             glc.H, glc.R, glc.G_L, glc.GLC_gas.G_gas,
@@ -101,6 +101,7 @@ function get_c_out!(glc::GLC)
     end
     glc.c_out = c_out
     glc.eff   = eff
+    return nothing
 end
 
 """
@@ -108,7 +109,7 @@ end
 
 Compute `kla` from a known `c_out`. Sets `glc.kla` and `glc.Bl`.
 """
-function get_kla_from_cout!(glc::GLC)
+function get_kla_from_cout!(glc::GLC)::Tuple{Float64,Float64}
     if !glc.fluid.MS
         Bl, kla = ExtractorFunctions.extractor_lm(
             glc.H, glc.R, glc.G_L, glc.GLC_gas.G_gas,
@@ -133,7 +134,7 @@ end
 
 Return the column height needed to achieve the current `glc.eff`.
 """
-function get_z_from_eff(glc::GLC)
+function get_z_from_eff(glc::GLC)::Float64
     if !glc.fluid.MS
         return ExtractorFunctions.length_extractor_lm(
             glc.R, glc.G_L, glc.GLC_gas.G_gas,

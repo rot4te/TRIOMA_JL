@@ -1,18 +1,23 @@
 """
-    MoltenSalts
+    FusionCoolant
 
-Dimensionless parameters and regime identification for molten-salt breeders.
+Dimensionless parameters and regime identification for fusion breeder coolants,
+covering both molten-salt and liquid-metal chemistries.
 """
-module MoltenSalts
+module FusionCoolant
 
-export W_ms, H_ms, get_regime_ms
+export W_ms, H_ms, get_regime_ms,
+       W_lm, partition_param_lm, get_regime_lm
+
+# ── Molten salts ───────────────────────────────────────────────────────────────
 
 """
 W parameter (surface/diffusion ratio) for molten salts.
 
 W << 1 → surface limited; W >> 1 → diffusion limited.
 """
-function W_ms(k_d, D, thick, K_S, c0, k_H)
+function W_ms(k_d::Float64, D::Float64, thick::Float64,
+              K_S::Float64, c0::Float64, k_H::Float64)::Float64
     return 2 * k_d * thick * (c0 / k_H)^0.5 / (D * K_S)
 end
 
@@ -21,16 +26,16 @@ H dimensionless number for molten salts.
 
 H >> 1 and H/W >> 1 → mass-transport limited.
 """
-function H_ms(k_t, k_H, k_d)
-    return k_d / (k_t * k_H)
-end
+H_ms(k_t::Float64, k_H::Float64, k_d::Float64)::Float64 = k_d / (k_t * k_H)
 
 """
     get_regime_ms(; k_d, D, thick, K_S, c0, k_t, k_H, print_var=false)
 
 Return a string describing the dominant transport regime for a molten-salt system.
 """
-function get_regime_ms(; k_d, D, thick, K_S, c0, k_t, k_H, print_var::Bool=false)
+function get_regime_ms(; k_d::Float64, D::Float64, thick::Float64, K_S::Float64,
+                         c0::Float64, k_t::Float64, k_H::Float64,
+                         print_var::Bool=false)::String
     W = W_ms(k_d, D, thick, K_S, c0, k_H)
     H = H_ms(k_t, k_H, k_d)
     result = if H > 10 && H / W > 10
@@ -51,31 +56,23 @@ function get_regime_ms(; k_d, D, thick, K_S, c0, k_t, k_H, print_var::Bool=false
     return result
 end
 
-end # module MoltenSalts
-
-
-"""
-    LiquidMetals
-
-Dimensionless parameters and regime identification for liquid-metal breeders.
-"""
-module LiquidMetals
-
-export W_lm, partition_param_lm, get_regime_lm
+# ── Liquid metals ──────────────────────────────────────────────────────────────
 
 """
 W parameter (surface/diffusion ratio) for liquid metals.
 
 W << 1 → surface limited.
 """
-function W_lm(k_r, D, thick, K_S, c0, K_S_L)
+function W_lm(k_r::Float64, D::Float64, thick::Float64,
+              K_S::Float64, c0::Float64, K_S_L::Float64)::Float64
     return k_r / D * K_S * thick * c0 / K_S_L
 end
 
 """
 Partition parameter (diffusion vs mass-transfer) for liquid metals.
 """
-function partition_param_lm(D, k_t, K_S_S, K_S_L, t)
+function partition_param_lm(D::Float64, k_t::Float64,
+                             K_S_S::Float64, K_S_L::Float64, t::Float64)::Float64
     return D / k_t * K_S_S / (K_S_L * t)
 end
 
@@ -84,7 +81,9 @@ end
 
 Return a string describing the dominant transport regime for a liquid-metal system.
 """
-function get_regime_lm(; D, k_t, K_S_S, K_S_L, k_r, thick, c0, print_var::Bool=false)
+function get_regime_lm(; D::Float64, k_t::Float64, K_S_S::Float64, K_S_L::Float64,
+                         k_r::Float64, thick::Float64, c0::Float64,
+                         print_var::Bool=false)::String
     W   = W_lm(k_r, D, thick, K_S_S, c0, K_S_L)
     pp  = partition_param_lm(D, k_t, K_S_S, K_S_L, thick)
     result = if pp > 10 && W > 10
@@ -107,4 +106,4 @@ function get_regime_lm(; D, k_t, K_S_S, K_S_L, k_r, thick, c0, print_var::Bool=f
     return result
 end
 
-end # module LiquidMetals
+end # module FusionCoolant

@@ -42,8 +42,7 @@ using .TriomaTypes
 using .Correlations
 using .PipeSubclasses
 using .Materials
-using .MoltenSalts
-using .LiquidMetals
+using .FusionCoolant
 using .ExtractorFunctions
 using .GasLiquidContactor
 using .PAVPipe
@@ -74,11 +73,9 @@ export set_properties_from_fluid_material!, set_properties_from_solid_material!,
 # --- Materials ---
 export Flibe, Sodium, LiPb, Steel
 
-# --- Molten salt dimensionless numbers ---
-export W_ms, H_ms, get_regime_ms
-
-# --- Liquid metal dimensionless numbers ---
-export W_lm, partition_param_lm, get_regime_lm
+# --- Coolant regime dimensionless numbers (molten salt + liquid metal) ---
+export W_ms, H_ms, get_regime_ms,
+       W_lm, partition_param_lm, get_regime_lm
 
 # --- Packed-column / GLC functions ---
 export calculate_gas_velocity,

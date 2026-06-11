@@ -4,7 +4,7 @@ export inspect, update_attribute!
 
 # True for any mutable struct — i.e. nested TRIOMA sub-objects.
 # Primitive types (Float64, Bool, Nothing, String) and arrays return false.
-_is_nested(val) = isstructtype(typeof(val)) && ismutabletype(typeof(val))
+_is_nested(val)::Bool = isstructtype(typeof(val)) && ismutabletype(typeof(val))
 
 """
     inspect(obj; variable_name=nothing, indent=0, io=stdout)
@@ -14,7 +14,7 @@ print the field with that name (case-insensitive). Nested mutable structs
 are expanded in-place with additional indentation.
 """
 function inspect(obj; variable_name::Union{String,Nothing}=nothing,
-                 indent::Int=0, io::IO=stdout)
+                 indent::Int=0, io::IO=stdout)::Nothing
     pad = "    " ^ indent
     for fname in fieldnames(typeof(obj))
         val      = getfield(obj, fname)
@@ -28,6 +28,7 @@ function inspect(obj; variable_name::Union{String,Nothing}=nothing,
             end
         end
     end
+    return nothing
 end
 
 """
@@ -38,7 +39,7 @@ directly on `obj`, the function recurses into nested mutable-struct children.
 Setting `:n_pipes` propagates the value to all nested children that carry it.
 Throws `ArgumentError` if no matching field is found anywhere.
 """
-function update_attribute!(obj, attr_name, new_value)
+function update_attribute!(obj, attr_name, new_value)::Nothing
     attr = attr_name isa Symbol ? attr_name : Symbol(attr_name)
 
     if attr in fieldnames(typeof(obj))
@@ -50,7 +51,7 @@ function update_attribute!(obj, attr_name, new_value)
                 if _is_nested(child)
                     try
                         update_attribute!(child, attr, new_value)
-                        return
+                        return nothing
                     catch e
                         e isa ArgumentError || rethrow()
                     end
@@ -66,7 +67,7 @@ function update_attribute!(obj, attr_name, new_value)
                 end
             end
         end
-        return
+        return nothing
     end
 
     # Attribute not on obj directly — recurse into mutable-struct children
@@ -75,7 +76,7 @@ function update_attribute!(obj, attr_name, new_value)
         if _is_nested(child)
             try
                 update_attribute!(child, attr, new_value)
-                return
+                return nothing
             catch e
                 e isa ArgumentError || rethrow()
             end

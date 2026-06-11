@@ -32,12 +32,16 @@ mutable struct WireCoil
 end
 WireCoil(; pitch=nothing) = WireCoil("WireCoil", pitch)
 
-function k_t_correlation(t::WireCoil; Re, Sc, d_hyd, D)
+function k_t_correlation(t::WireCoil;
+                         Re::Float64, Sc::Float64,
+                         d_hyd::Float64, D::Float64)::Float64
     Sh = Re > 2030 ? 0.132 * Re^0.72 * Sc^0.37 * (t.pitch / d_hyd)^(-0.372) : 3.66
     return Correlations.get_k_from_Sh(Sh, d_hyd, D)
 end
 
-function h_t_correlation(t::WireCoil; Re, Pr, d_hyd, k)
+function h_t_correlation(t::WireCoil;
+                         Re::Float64, Pr::Float64,
+                         d_hyd::Float64, k::Float64)::Float64
     Nu = Re > 2030 ? 0.132 * Re^0.72 * Pr^0.37 * (t.pitch / d_hyd)^(-0.372) : 3.66
     return Correlations.get_h_from_Nu(Nu, k, d_hyd)
 end
@@ -52,12 +56,16 @@ end
 CustomTurbulator(; a=nothing, b=nothing, c=nothing) =
     CustomTurbulator("Custom", a, b, c)
 
-function k_t_correlation(t::CustomTurbulator; Re, Sc, d_hyd, D)
+function k_t_correlation(t::CustomTurbulator;
+                         Re::Float64, Sc::Float64,
+                         d_hyd::Float64, D::Float64)::Float64
     Sh = Re > 2030 ? t.a * Re^t.b * Sc^t.c : 3.66
     return Correlations.get_k_from_Sh(Sh, d_hyd, D)
 end
 
-function h_t_correlation(t::CustomTurbulator; Re, Pr, d_hyd, k)
+function h_t_correlation(t::CustomTurbulator;
+                         Re::Float64, Pr::Float64,
+                         d_hyd::Float64, k::Float64)::Float64
     Nu = Re > 2030 ? t.a * Re^t.b * Pr^t.c : 3.66
     # Note: the Python source references self.pitch here, which appears to be a
     # copy-paste bug (CustomTurbulator has no pitch). Using d_hyd as characteristic
@@ -91,13 +99,13 @@ function Geometry(; L=nothing, D=nothing, thick=nothing, n_pipes=1.0, turbulator
 end
 
 """Fluid volume of a single pipe [m³]."""
-get_fluid_volume(g::Geometry) = π * (g.D / 2)^2 * g.L
+get_fluid_volume(g::Geometry)::Float64 = π * (g.D / 2)^2 * g.L
 
 """Wall (solid) volume of a single pipe [m³]."""
-get_solid_volume(g::Geometry) = π * ((g.D / 2)^2 - (g.D / 2 - g.thick)^2) * g.L
+get_solid_volume(g::Geometry)::Float64 = π * ((g.D / 2)^2 - (g.D / 2 - g.thick)^2) * g.L
 
 """Total volume (fluid + wall) of a single pipe [m³]."""
-get_total_volume(g::Geometry) = get_fluid_volume(g) + get_solid_volume(g)
+get_total_volume(g::Geometry)::Float64 = get_fluid_volume(g) + get_solid_volume(g)
 
 # ── FluidMaterial / SolidMaterial (simple property containers) ─────────────────
 
@@ -177,7 +185,7 @@ function Fluid(;
 end
 
 """Copy fluid thermo-physical properties from a `FluidMaterial` object."""
-function set_properties_from_fluid_material!(fluid::Fluid, mat::FluidMaterial)
+function set_properties_from_fluid_material!(fluid::Fluid, mat::FluidMaterial)::Nothing
     fluid.T         = mat.T
     fluid.D         = mat.D
     fluid.Solubility = mat.Solubility
@@ -185,16 +193,18 @@ function set_properties_from_fluid_material!(fluid::Fluid, mat::FluidMaterial)
     fluid.rho       = mat.rho
     fluid.cp        = mat.cp
     fluid.k         = mat.k
+    return nothing
 end
 
 """Re-evaluate temperature-dependent D and Solubility using Arrhenius expressions."""
-function update_T_prop!(fluid::Fluid)
+function update_T_prop!(fluid::Fluid)::Nothing
     if fluid.D_0 !== nothing && fluid.E_d !== nothing && fluid.T !== nothing
         fluid.D = fluid.D_0 * exp(-fluid.E_d / (K_B_EV * fluid.T))
     end
     if fluid.Solubility_0 !== nothing && fluid.E_s !== nothing && fluid.T !== nothing
         fluid.Solubility = fluid.Solubility_0 * exp(-fluid.E_s / (K_B_EV * fluid.T))
     end
+    return nothing
 end
 
 """
@@ -205,14 +215,15 @@ velocity, and thermophysical properties. Uses the Getthem correlation for turbul
 flow and Sh = 3.66 for laminar flow, or the turbulator's own correlation if one is
 provided.
 """
-function get_kt!(fluid::Fluid; turbulator=nothing)
+function get_kt!(fluid::Fluid;
+                 turbulator::Union{WireCoil,CustomTurbulator,Turbulator,Nothing}=nothing)::Nothing
     if fluid.d_Hyd === nothing
         @warn "Hydraulic diameter is not defined"
-        return
+        return nothing
     end
     if fluid.k_t !== nothing
         println("k_t is already defined")
-        return
+        return nothing
     end
     Re_val = Correlations.Re(fluid.rho, fluid.U0, fluid.d_Hyd, fluid.mu)
     Sc_val = Correlations.Schmidt(fluid.D, fluid.mu, fluid.rho)
@@ -233,6 +244,7 @@ function get_kt!(fluid::Fluid; turbulator=nothing)
             error("Turbulator type '$(turbulator.turbulator_type)' not implemented")
         end
     end
+    return nothing
 end
 
 # ── Membrane ───────────────────────────────────────────────────────────────────
@@ -275,20 +287,22 @@ function Membrane(;
 end
 
 """Copy membrane properties from a `SolidMaterial` object."""
-function set_properties_from_solid_material!(mem::Membrane, mat::SolidMaterial)
+function set_properties_from_solid_material!(mem::Membrane, mat::SolidMaterial)::Nothing
     mem.T   = mat.T
     mem.D   = mat.D
     mem.K_S = mat.K_S
+    return nothing
 end
 
 """Re-evaluate temperature-dependent D and K_S using Arrhenius expressions."""
-function update_T_prop!(mem::Membrane)
+function update_T_prop!(mem::Membrane)::Nothing
     if mem.D_0 !== nothing && mem.E_d !== nothing && mem.T !== nothing
         mem.D = mem.D_0 * exp(-mem.E_d / (K_B_EV * mem.T))
     end
     if mem.K_S_0 !== nothing && mem.E_S !== nothing && mem.T !== nothing
         mem.K_S = mem.K_S_0 * exp(-mem.E_S / (K_B_EV * mem.T))
     end
+    return nothing
 end
 
 end # module PipeSubclasses

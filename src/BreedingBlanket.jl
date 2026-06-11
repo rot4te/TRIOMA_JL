@@ -70,8 +70,9 @@ BreedingBlanket(;
 Compute the coolant mass flow rate [kg/s] from `Q`, `T_out - T_in`, and
 `fluid.cp`. Stores the result in `bb.m_coolant`.
 """
-function get_flowrate!(bb::BreedingBlanket)
+function get_flowrate!(bb::BreedingBlanket)::Nothing
     bb.m_coolant = bb.Q / ((bb.T_out - bb.T_in) * bb.fluid.cp)
+    return nothing
 end
 
 """
@@ -87,7 +88,7 @@ Physics:
 - For liquid metal (MS=false): tritium is atomic T.
   `c_out = tritium_gen     / (m_coolant / ρ) + c_in`
 """
-function get_cout!(bb::BreedingBlanket; print_var::Bool=false)
+function get_cout!(bb::BreedingBlanket; print_var::Bool=false)::Nothing
     bb.m_coolant === nothing && get_flowrate!(bb)
 
     neutrons    = bb.Q / (REACTION_ENERGY_EV * eV_TO_J)
@@ -105,6 +106,7 @@ function get_cout!(bb::BreedingBlanket; print_var::Bool=false)
     else
         bb.c_out = tritium_gen     / vol_flow + bb.c_in
     end
+    return nothing
 end
 
 """
@@ -113,9 +115,10 @@ end
 Set the inlet concentration of `next` to the outlet concentration of `bb`.
 `next` can be any TRIOMA component that has a `c_in` field.
 """
-function connect_to_component!(bb::BreedingBlanket, next)
+function connect_to_component!(bb::BreedingBlanket, next)::Nothing
     next === nothing && throw(ArgumentError("next component cannot be nothing"))
     update_attribute!(next, "c_in", bb.c_out)
+    return nothing
 end
 
 end # module
