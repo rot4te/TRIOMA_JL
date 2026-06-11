@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }} — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ["1.9", "1.10", "lts", "pre"]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        exclude:
+          # Reduce CI load: only run pre-release on Linux
+          - julia-version: "pre"
+            os: windows-latest
+          - julia-version: "pre"
+            os: macOS-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Julia ${{ matrix.julia-version }}
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v2
+
+      - name: Add AtomicAndPhysicalConstants from GitHub
+        # The package is not yet registered; install from source
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.add(url="https://github.com/rot4te/AtomicAndPhysicalConstants.jl")
+          '
+
+      - name: Install remaining dependencies
+        uses: julia-actions/julia-buildpkg@v1
+
+      - name: Run tests
+        uses: julia-actions/julia-runtest@v1
+
+      - name: Upload coverage
+        uses: julia-actions/julia-processcoverage@v1
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: lcov.info
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
