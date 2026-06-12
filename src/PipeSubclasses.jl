@@ -147,7 +147,7 @@ Geometric parameters for a pipe/tube component.
 Fields
 - `L`           : length [m]
 - `D`           : inner diameter [m] (circular pipes; characteristic diameter otherwise)
-- `ds`          : wall thickness [m]
+- `dw`          : wall thickness [m]
 - `n_pipes`     : number of parallel pipes (default 1)
 - `turbulator`  : optional turbulator object
 - `cross_section`: optional `CrossSection`. When `nothing` (default) the pipe is
@@ -157,14 +157,14 @@ Fields
 mutable struct Geometry
     L::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
-    ds::Union{Float64,Nothing}
+    dw::Union{Float64,Nothing}
     n_pipes::Float64
     turbulator::Union{WireCoil,CustomTurbulator,Turbulator,Nothing}
     cross_section::Union{CrossSection,Nothing}
 end
-function Geometry(; L=nothing, D=nothing, ds=nothing, n_pipes=1.0,
+function Geometry(; L=nothing, D=nothing, dw=nothing, n_pipes=1.0,
                     turbulator=nothing, cross_section=nothing)
-    Geometry(L, D, ds, n_pipes, turbulator, cross_section)
+    Geometry(L, D, dw, n_pipes, turbulator, cross_section)
 end
 
 # Effective cross-section: the explicit one if given, else a circular pipe of
@@ -187,14 +187,14 @@ get_fluid_volume(g::Geometry)::Float64 = flow_area(g) * g.L
 """
 Wall (solid) volume of a single pipe [m³].
 
-Currently modeled as a circular wall of thickness `ds` (inner diameter `D`),
+Currently modeled as a circular wall of thickness `dw` (inner diameter `D`),
 so a circular `D` is required even when a non-circular `cross_section` is set.
 """
 function get_solid_volume(g::Geometry)::Float64
     g.D === nothing && error(
         "get_solid_volume requires a circular diameter `D`; wall volume for " *
         "non-circular cross-sections is not yet modeled")
-    return π * ((g.D / 2)^2 - (g.D / 2 - g.ds)^2) * g.L
+    return π * ((g.D / 2)^2 - (g.D / 2 - g.dw)^2) * g.L
 end
 
 """Total volume (fluid + wall) of a single pipe [m³]."""
@@ -353,7 +353,7 @@ Temperature-dependent `D` and `K_S` are evaluated from Arrhenius parameters
 mutable struct Membrane
     T::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
-    ds::Union{Float64,Nothing}
+    dw::Union{Float64,Nothing}
     K_S::Union{Float64,Nothing}
     k_d::Union{Float64,Nothing}   # dissociation rate constant
     k_r::Union{Float64,Nothing}   # recombination rate constant
@@ -367,7 +367,7 @@ mutable struct Membrane
 end
 
 function Membrane(;
-    T=nothing, D=nothing, ds=nothing, K_S=nothing,
+    T=nothing, D=nothing, dw=nothing, K_S=nothing,
     k_d=nothing, k_r=nothing, k=nothing,
     D_0=nothing, E_d=nothing, K_S_0=nothing, E_S=nothing,
     inv=nothing, V=nothing
@@ -376,7 +376,7 @@ function Membrane(;
         D_0 * exp(-E_d / (K_B_EV * T)) : D
     KS_val = (K_S_0 !== nothing && E_S !== nothing && T !== nothing) ?
         K_S_0 * exp(-E_S / (K_B_EV * T)) : K_S
-    Membrane(T, D_val, ds, KS_val, k_d, k_r, k, D_0, E_d, K_S_0, E_S, inv, V)
+    Membrane(T, D_val, dw, KS_val, k_d, k_r, k, D_0, E_d, K_S_0, E_S, inv, V)
 end
 
 """Copy membrane properties from a `SolidMaterial` object."""

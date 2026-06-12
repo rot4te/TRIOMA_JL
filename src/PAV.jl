@@ -49,9 +49,9 @@ All physical inputs are set by the user (or copied from sub-objects); all
 derived quantities are written back by the calculation functions.
 
 ## Required inputs
-- `geometry`  : `Geometry` with inner diameter `D`, wall thickness `ds`, length `L`, and `n_pipes`
+- `geometry`  : `Geometry` with inner diameter `D`, wall thickness `dw`, length `L`, and `n_pipes`
 - `fluid`     : `Fluid` with tritium diffusivity `D`, solubility, velocity `U0`, and thermo-physical properties
-- `membrane`  : `Membrane` with diffusivity `D`, Sievert constant `K_S`, surface rate `k_d`, wall thickness `ds`
+- `membrane`  : `Membrane` with diffusivity `D`, Sievert constant `K_S`, surface rate `k_d`, wall thickness `dw`
 - `c_in`      : tritium inlet concentration [mol/m³]
 
 ## Computed outputs (set by calculation methods)
@@ -128,9 +128,9 @@ cylindrical shell:  denom = r_in · ln(r_out / r_in)
 It appears in the denominator of every Fickian permeation-flux expression:
   J_diff = D_membrane / denom · K_S · (c_surface − c_equil)
 """
-_wall_denom(d_hyd::Float64, ds::Float64)::Float64 =
-    (d_hyd / 2) * log((d_hyd / 2 + ds) / (d_hyd / 2))
-_wall_denom(comp::Component)::Float64 = _wall_denom(comp.fluid.d_Hyd, comp.membrane.ds)
+_wall_denom(d_hyd::Float64, dw::Float64)::Float64 =
+    (d_hyd / 2) * log((d_hyd / 2 + dw) / (d_hyd / 2))
+_wall_denom(comp::Component)::Float64 = _wall_denom(comp.fluid.d_Hyd, comp.membrane.dw)
 
 """Diffusion conductance of the membrane wall: G = D_m / wall_denom [m/s]."""
 _diff_conductance(comp::Component)::Float64 = comp.membrane.D / _wall_denom(comp)
@@ -335,14 +335,14 @@ function get_regime(comp::Component; print_var::Bool=false)::String
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
     if comp.fluid.MS
         return FusionCoolant.get_regime_ms(;
-            k_d=comp.membrane.k_d, D=comp.membrane.D, ds=comp.membrane.ds,
+            k_d=comp.membrane.k_d, D=comp.membrane.D, dw=comp.membrane.dw,
             K_S=comp.membrane.K_S, c0=comp.c_in, k_t=comp.fluid.k_t,
             k_H=comp.fluid.Solubility, print_var=print_var)
     else
         return FusionCoolant.get_regime_lm(;
             D=comp.membrane.D, k_t=comp.fluid.k_t, K_S_S=comp.membrane.K_S,
             K_S_L=comp.fluid.Solubility, k_r=comp.membrane.k_r,
-            ds=comp.membrane.ds, c0=comp.c_in, print_var=print_var)
+            dw=comp.membrane.dw, c0=comp.c_in, print_var=print_var)
     end
 end
 
@@ -366,14 +366,14 @@ function get_adimensionals!(comp::Component)::Nothing
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
     if comp.fluid.MS
         comp.H = FusionCoolant.H_ms(comp.fluid.k_t, comp.fluid.Solubility, comp.membrane.k_d)
-        comp.W = FusionCoolant.W_ms(comp.membrane.k_d, comp.membrane.D, comp.membrane.ds,
+        comp.W = FusionCoolant.W_ms(comp.membrane.k_d, comp.membrane.D, comp.membrane.dw,
                                    comp.membrane.K_S, comp.c_in, comp.fluid.Solubility)
     else
-        comp.W = FusionCoolant.W_lm(comp.membrane.k_r, comp.membrane.D, comp.membrane.ds,
+        comp.W = FusionCoolant.W_lm(comp.membrane.k_r, comp.membrane.D, comp.membrane.dw,
                                     comp.membrane.K_S, comp.c_in, comp.fluid.Solubility)
         comp.H = comp.W * FusionCoolant.partition_param_lm(comp.membrane.D, comp.fluid.k_t,
                                                            comp.membrane.K_S, comp.fluid.Solubility,
-                                                           comp.membrane.ds)
+                                                           comp.membrane.dw)
     end
     return nothing
 end
@@ -796,7 +796,7 @@ Combines the convective (fluid-side) and conductive (wall) resistances:
 Stores h_prim in `comp.fluid.h_coeff` and U in `comp.U`.
 """
 function get_global_HX_coeff!(comp::Component; R_conv_sec::Float64=0.0)::Nothing
-    R_cond = log((comp.fluid.d_Hyd + comp.membrane.ds) / comp.fluid.d_Hyd) /
+    R_cond = log((comp.fluid.d_Hyd + comp.membrane.dw) / comp.fluid.d_Hyd) /
              (2π * comp.membrane.k)
     Re_val = Correlations.Re(comp.fluid.rho, comp.fluid.U0, comp.fluid.d_Hyd, comp.fluid.mu)
     Pr_val = Correlations.Pr(comp.fluid.cp, comp.fluid.mu, comp.fluid.k)
@@ -828,7 +828,7 @@ end
 #   LM: c_m(r,L) = (c_w(L) − c_ext) · (−log(r/r_out)/log(r_out/r_in)) + c_ext
 #   MS: same radial profile; c_wl(L) from the Lambert W solution
 #
-# where r_out = r_in + ds = D/2 + ds.
+# where r_out = r_in + dw = D/2 + dw.
 
 # Closed-form radial integral of the log-profile shape function:
 # ∫_r_in^r_out (−log(r/r_out) / log(r_out/r_in)) · 2πr dr
@@ -863,7 +863,7 @@ function get_solid_inventory!(comp::Component;
         PipeSubclasses.get_kt!(comp.fluid; turbulator=comp.geometry.turbulator)
 
     r_in  = comp.fluid.d_Hyd / 2
-    r_out = r_in + comp.membrane.ds
+    r_out = r_in + comp.membrane.dw
     c_ext = p_out^0.5 * comp.membrane.K_S
 
     # Closed-form radial integral — constants hoisted outside quadgk
@@ -913,7 +913,7 @@ function analytical_solid_inventory!(comp::Component; p_out::Float64=0.0)::Float
 
     if !comp.fluid.MS
         r_in  = comp.geometry.D / 2
-        r_out = r_in + comp.geometry.ds
+        r_out = r_in + comp.geometry.dw
         z     = _lm_zeta(comp)
         L_ch  = _lm_L_char(comp)
         # K is the radial × azimuthal prefactor for the varying part of c_m

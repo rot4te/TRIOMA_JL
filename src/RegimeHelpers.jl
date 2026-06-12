@@ -16,9 +16,9 @@ W parameter ([diffusion flux]/[surface flux]) for molten salts.
 
 W << 1 → surface limited; W >> 1 → diffusion limited.
 """
-function W_ms(k_d::Float64, D::Float64, ds::Float64,
+function W_ms(k_d::Float64, D::Float64, dw::Float64,
               K_S::Float64, c0::Float64, k_H::Float64)::Float64
-    return 2 * k_d * ds * (c0 / k_H)^0.5 / (D * K_S)
+    return 2 * k_d * dw * (c0 / k_H)^0.5 / (D * K_S)
 end
 
 """
@@ -29,14 +29,14 @@ H >> 1 and H/W >> 1 → mass-transport limited.
 H_ms(k_t::Float64, k_H::Float64, k_d::Float64)::Float64 = k_d / (k_t * k_H)
 
 """
-    get_regime_ms(; k_d, D, ds, K_S, c0, k_t, k_H, print_var=false)
+    get_regime_ms(; k_d, D, dw, K_S, c0, k_t, k_H, print_var=false)
 
 Return a string describing the dominant transport regime for a molten-salt system.
 """
-function get_regime_ms(; k_d::Float64, D::Float64, ds::Float64, K_S::Float64,
+function get_regime_ms(; k_d::Float64, D::Float64, dw::Float64, K_S::Float64,
                          c0::Float64, k_t::Float64, k_H::Float64,
                          print_var::Bool=false)::String
-    W = W_ms(k_d, D, ds, K_S, c0, k_H)
+    W = W_ms(k_d, D, dw, K_S, c0, k_H)
     H = H_ms(k_t, k_H, k_d)
     result = if H > 10 && H / W > 10
         "Mass transport limited"
@@ -63,9 +63,9 @@ W parameter ([diffusion flux]/[surface flux]) for liquid metals.
 
 W << 1 → surface limited.
 """
-function W_lm(k_r::Float64, D::Float64, ds::Float64,
+function W_lm(k_r::Float64, D::Float64, dw::Float64,
               K_S::Float64, c0::Float64, K_S_L::Float64)::Float64
-    return k_r / D * K_S * ds * c0 / K_S_L
+    return k_r / D * K_S * dw * c0 / K_S_L
 end
 
 """
@@ -77,15 +77,15 @@ function partition_param_lm(D::Float64, k_t::Float64,
 end
 
 """
-    get_regime_lm(; D, k_t, K_S_S, K_S_L, k_r, ds, c0, print_var=false)
+    get_regime_lm(; D, k_t, K_S_S, K_S_L, k_r, dw, c0, print_var=false)
 
 Return a string describing the dominant transport regime for a liquid-metal system.
 """
 function get_regime_lm(; D::Float64, k_t::Float64, K_S_S::Float64, K_S_L::Float64,
-                         k_r::Float64, ds::Float64, c0::Float64,
+                         k_r::Float64, dw::Float64, c0::Float64,
                          print_var::Bool=false)::String
-    W   = W_lm(k_r, D, ds, K_S_S, c0, K_S_L)
-    pp  = partition_param_lm(D, k_t, K_S_S, K_S_L, ds)
+    W   = W_lm(k_r, D, dw, K_S_S, c0, K_S_L)
+    pp  = partition_param_lm(D, k_t, K_S_S, K_S_L, dw)
     result = if pp > 10 && W > 10
         "Mass transport limited"
     elseif pp < 0.1 && W < 0.1
