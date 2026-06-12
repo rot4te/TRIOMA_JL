@@ -5,7 +5,7 @@ Types and methods for Gas-Liquid Contactor (packed-column) components.
 """
 module GasLiquidContactor
 
-using ..TriomaTypes: update_attribute!
+using ..TriomaCore: update_attribute!
 using ..PipeSubclasses: Fluid, Membrane
 using ..ExtractorFunctions
 

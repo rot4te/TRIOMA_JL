@@ -8,7 +8,7 @@ and coolant flow rate.
 
 module BreedingBlanketModule
 
-using ..TriomaTypes
+using ..TriomaCore
 using ..PipeSubclasses: Fluid, FluidMaterial
 
 export BreedingBlanket, get_flowrate!, get_cout!, connect_to_component!

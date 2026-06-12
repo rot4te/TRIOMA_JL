@@ -23,7 +23,7 @@ module TRIOMA
 # Load submodules in dependency order
 # ---------------------------------------------------------------------------
 
-include("TriomaTypes.jl")
+include("TriomaCore.jl")
 include("Correlations.jl")
 include("PipeSubclasses.jl")
 include("Materials.jl")
@@ -38,7 +38,7 @@ include("Circuit.jl")
 # Bring submodules into scope
 # ---------------------------------------------------------------------------
 
-using .TriomaTypes
+using .TriomaCore
 using .Correlations
 using .PipeSubclasses
 using .Materials
@@ -54,16 +54,22 @@ using .CircuitModule
 # ---------------------------------------------------------------------------
 
 # --- Base infrastructure ---
-export inspect, update_attribute!
+export TriomaClass, inspect, update_attribute!
 
 # --- Correlations ---
 export Nu_SiederTate, Nu_Gnielinsky, Nu_DittusBoelter, f_Pethukov,
        get_h_from_Nu, f_Haaland, Schmidt, Sherwood, Sherwood_HT_analogy,
-       get_k_from_Sh, Re, Pr, Sherwood_bubbles, get_length_HX, get_deltaTML
+       get_k_from_Sh, Re, Pr, Sherwood_bubbles, get_length_HX, get_deltaTML,
+       hydraulic_diameter,
+       Nu_Iev_tube, Nu_Asma_tube, Nu_Si_tube,
+       Nu_Yang_lam, Nu_Yang1_tube, Nu_Yang2_tube,
+       fD_Iev_tube, fD_Asma_tube, fD_Si_tube, fD_Gao_tube, fD_Yang_tube
 
 # --- Pipe subclasses (types) ---
 export Geometry, Fluid, Membrane, FluidMaterial, SolidMaterial,
        Turbulator, WireCoil, CustomTurbulator,
+       CrossSection, Circular, Rectangular, Annulus, TwistedElliptical,
+       flow_area, wetted_perimeter,
        get_fluid_volume, get_solid_volume, get_total_volume
 
 # --- Pipe subclasses (functions) ---
@@ -97,6 +103,7 @@ export Component,
        get_efficiency!, get_flux!,
        outlet_c_comp!,
        get_global_HX_coeff!,
+       set_hydraulic_diameter!,
        get_pressure_drop!, get_pumping_power!,
        get_solid_inventory!, get_fluid_inventory!, get_inventory!,
        analytical_solid_inventory!, analytical_fluid_inventory!,

@@ -7,7 +7,7 @@ Supports open and closed-loop (iterative) solving.
 
 module CircuitModule
 
-using ..TriomaTypes
+using ..TriomaCore
 using ..PipeSubclasses
 using ..PAVPipe
 import ..PAVPipe: get_inventory!, estimate_cost!

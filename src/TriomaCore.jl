@@ -1,6 +1,31 @@
-module TriomaTypes
+module TriomaCore
 
-export inspect, update_attribute!
+export TriomaClass, inspect, update_attribute!
+
+"""
+    TriomaClass
+
+Generic mutable container that nested TRIOMA sub-objects can be modeled on.
+It carries optional scalar fields and optional nested `TriomaClass` children,
+and is the canonical type operated on by [`inspect`](@ref) and
+[`update_attribute!`](@ref). Construct with keyword arguments; every field
+defaults to `nothing`.
+"""
+mutable struct TriomaClass
+    a      ::Union{Int, Nothing}
+    b      ::Union{Int, Nothing}
+    n_pipes::Union{Int, Nothing}
+    child  ::Union{TriomaClass, Nothing}
+    child1 ::Union{TriomaClass, Nothing}
+    child2 ::Union{TriomaClass, Nothing}
+    value  ::Union{Int, Nothing}
+    leaf   ::Union{TriomaClass, Nothing}
+    middle ::Union{TriomaClass, Nothing}
+end
+TriomaClass(; a=nothing, b=nothing, n_pipes=nothing,
+              child=nothing, child1=nothing, child2=nothing,
+              value=nothing, leaf=nothing, middle=nothing) =
+    TriomaClass(a, b, n_pipes, child, child1, child2, value, leaf, middle)
 
 # True for any mutable struct — i.e. nested TRIOMA sub-objects.
 # Primitive types (Float64, Bool, Nothing, String) and arrays return false.
@@ -85,4 +110,4 @@ function update_attribute!(obj, attr_name, new_value)::Nothing
     throw(ArgumentError("'$(attr_name)' is not an attribute of $(typeof(obj))"))
 end
 
-end # module TriomaTypes
+end # module TriomaCore

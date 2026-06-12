@@ -8,8 +8,8 @@
     fluid = Fluid(T=300.0, D=1e-9, Solubility=0.5, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                   k_t=0.1, U0=0.2, d_Hyd=0.3)
-    geom  = Geometry(L=1.0, thick=0.5, D=0.3)
-    mem   = Membrane(D=0.4, thick=0.5, K_S=0.6, T=300.0,
+    geom  = Geometry(L=1.0, ds=0.5, D=0.3)
+    mem   = Membrane(D=0.4, ds=0.5, K_S=0.6, T=300.0,
                      k_r=1e7, k=0.8, k_d=1e7)
     Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
   end
@@ -18,8 +18,8 @@
     fluid = Fluid(T=300.0, D=1e-9, Solubility=0.5, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                   k_t=0.1, U0=0.2, d_Hyd=0.3)
-    geom  = Geometry(L=1.0, thick=0.5, D=0.3)
-    mem   = Membrane(k_d=1e7, D=0.4, thick=0.5, K_S=0.6,
+    geom  = Geometry(L=1.0, ds=0.5, D=0.3)
+    mem   = Membrane(k_d=1e7, D=0.4, ds=0.5, K_S=0.6,
                      T=300.0, k_r=1e7, k=0.8)
     Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
   end
@@ -53,7 +53,7 @@
       get_adimensionals!(comp2)
       expected_H = comp2.membrane.k_d /
                    (comp2.fluid.k_t * comp2.fluid.Solubility)
-      expected_W = 2 * comp2.membrane.k_d * comp2.geometry.thick *
+      expected_W = 2 * comp2.membrane.k_d * comp2.geometry.ds *
                    (comp2.c_in / comp2.fluid.Solubility)^0.5 /
                    (comp2.membrane.D * comp2.membrane.K_S)
       @test comp2.H ≈ expected_H
@@ -142,10 +142,10 @@
       comp2 = make_lm_component()
       get_adimensionals!(comp2)
       expected_W = comp2.membrane.k_r / comp2.membrane.D *
-                   comp2.membrane.K_S * comp2.membrane.thick *
+                   comp2.membrane.K_S * comp2.membrane.ds *
                    comp2.c_in / comp2.fluid.Solubility
       expected_H = expected_W * comp2.membrane.D * comp2.membrane.K_S /
-                   (comp2.fluid.k_t * comp2.fluid.Solubility * comp2.membrane.thick)
+                   (comp2.fluid.k_t * comp2.fluid.Solubility * comp2.membrane.ds)
       @test comp2.W ≈ expected_W
       @test comp2.H ≈ expected_H
     end
@@ -264,8 +264,8 @@
                     MS=true, mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                     k_t=0.1, U0=0.2, d_Hyd=0.3, recirculation=-0.5)
       wc   = WireCoil(pitch=1e-2)
-      geom = Geometry(L=1.0, thick=0.5e-3, D=0.3, turbulator=wc)
-      mem  = Membrane(D_0=0.4, E_d=0.1, E_S=0.1, thick=0.5,
+      geom = Geometry(L=1.0, ds=0.5e-3, D=0.3, turbulator=wc)
+      mem  = Membrane(D_0=0.4, E_d=0.1, E_S=0.1, ds=0.5,
                       K_S_0=0.6, T=300.0, k_r=1e7, k=0.8, k_d=1e7)
       Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     end
@@ -424,9 +424,9 @@
   # Membrane tests  (TestMembrane)
   # ==========================================================================
   @testset "Membrane" begin
-    mem = Membrane(k_d=1e7, D=0.4, thick=0.5, K_S=0.6, T=300.0, k_r=1e7, k=0.8)
-    update_attribute!(mem, "thick", 1e-3)
-    @test mem.thick == 1e-3
+    mem = Membrane(k_d=1e7, D=0.4, ds=0.5, K_S=0.6, T=300.0, k_r=1e7, k=0.8)
+    update_attribute!(mem, "ds", 1e-3)
+    @test mem.ds == 1e-3
     @test_throws ArgumentError update_attribute!(mem, "kghufh", 0.3)
     try
       update_attribute!(mem, "kghufh", 0.3)
@@ -485,8 +485,8 @@
   function make_ms_diffusion_limited()
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e7, D=1e-9, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e7, D=1e-9, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
   end
 
@@ -504,8 +504,8 @@
   @testset "MS Mixed (diffusion+mass-transport) regime" begin
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e7, D=1e-6, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e7, D=1e-6, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mixed regime"
     analytical_efficiency!(comp)
@@ -518,8 +518,8 @@
   @testset "MS Mixed (diffusion+surface) regime" begin
     fluid = Fluid(T=750.0, D=2e-2, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e-10, D=1e-7, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-10, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e-10, D=1e-7, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-10, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mixed regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in)
@@ -528,8 +528,8 @@
   @testset "MS Mixed (mass-transport+surface) regime" begin
     fluid = Fluid(T=750.0, D=2e-8, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e-8, D=1e-2, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-8, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e-8, D=1e-2, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-8, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mixed regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -538,8 +538,8 @@
   @testset "MS Mass-transport limited regime" begin
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-2, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e7, D=1e-2, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e7, D=1e-2, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mass transport limited"
     get_flux!(comp, 0.3; c_guess=0.3)
@@ -552,8 +552,8 @@
   @testset "MS Surface limited regime" begin
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e-16, D=1e-9, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-16, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e-16, D=1e-9, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-16, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Surface limited"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -562,8 +562,8 @@
   @testset "MS Fully mixed regime" begin
     fluid = Fluid(T=750.0, D=2e-11, Solubility=1e-4, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e-10, D=1e-7, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-10, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e-10, D=1e-7, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-10, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp) == "Mixed regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -572,8 +572,8 @@
   @testset "LM Mass-transport limited regime" begin
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-2, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e7, D=1e-2, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e7, D=1e-2, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Mass transport limited"
     get_flux!(comp, 0.3; c_guess=0.3)
@@ -586,8 +586,8 @@
   @testset "LM Mixed (diffusion+mass-transport) regime" begin
     fluid = Fluid(T=750.0, D=2e-9, Solubility=1e-2, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e7, D=1e-7, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e7, D=1e-7, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Mixed regime"
     analytical_efficiency!(comp)
@@ -598,8 +598,8 @@
   @testset "LM Mixed (diffusion+surface) regime" begin
     fluid = Fluid(T=750.0, D=2e-3, Solubility=1e-2, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e-3, D=1e-7, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-3, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e-3, D=1e-7, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-3, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Mixed regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -608,8 +608,8 @@
   @testset "LM Transport+surface limited regime" begin
     fluid = Fluid(T=750.0, D=2e-6, Solubility=1e-2, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e-3, D=1e-2, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-3, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e-3, D=1e-2, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-3, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Transport and surface limited regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -618,8 +618,8 @@
   @testset "LM Fully mixed regime" begin
     fluid = Fluid(T=750.0, D=2e-11, Solubility=1e-2, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=2.0, d_Hyd=2e-3)
-    geom  = Geometry(L=1.0, thick=1e-4, D=2e-3)
-    mem   = Membrane(k_d=1e-9, D=1e-9, thick=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-9, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-4, D=2e-3)
+    mem   = Membrane(k_d=1e-9, D=1e-9, ds=1e-4, K_S=0.6e-2, T=700.0, k_r=1e-9, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Mixed regime"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -628,8 +628,8 @@
   @testset "LM Diffusion limited regime" begin
     fluid = Fluid(T=750.0, D=2e-5, Solubility=1e-4, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e7, D=1e-9, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e7, D=1e-9, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e7, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Diffusion Limited"
     jperm = get_flux!(comp, 0.3)
@@ -642,8 +642,8 @@
   @testset "LM Surface limited regime" begin
     fluid = Fluid(T=750.0, D=2e-5, Solubility=1e-4, MS=false,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=1.0, thick=1e-2, D=2e-2)
-    mem   = Membrane(k_d=1e-16, D=1e-9, thick=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-16, k=0.8)
+    geom  = Geometry(L=1.0, ds=1e-2, D=2e-2)
+    mem   = Membrane(k_d=1e-16, D=1e-9, ds=1e-2, K_S=0.6e-2, T=700.0, k_r=1e-16, k=0.8)
     comp  = Component(c_in=0.5, geometry=geom, eff=0.8, fluid=fluid, membrane=mem)
     @test get_regime(comp; print_var=true) == "Surface limited"
     @test_nowarn get_efficiency!(comp; c_guess=comp.c_in / 2)
@@ -727,8 +727,8 @@
     fluid = Fluid(T=900.0, D=1e-7, Solubility=0.5, MS=true,
                   mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                   k_t=0.1, U0=1.0, d_Hyd=2e-2)
-    geom  = Geometry(L=10.0, thick=0.5e-3, D=2e-2)
-    mem   = Membrane(D_0=1e-7, E_d=1.0, thick=0.5e-3,
+    geom  = Geometry(L=10.0, ds=0.5e-3, D=2e-2)
+    mem   = Membrane(D_0=1e-7, E_d=1.0, ds=0.5e-3,
                      K_S=0.6, T=900.0, k_r=1e7, k=0.8, k_d=1e7)
     comp1 = Component(geometry=geom, fluid=fluid, membrane=mem, loss=false)
     comp2 = Component(geometry=geom, fluid=fluid, membrane=mem,
@@ -736,8 +736,8 @@
     bb    = BreedingBlanket(c_in=1e-3, Q=0.5e9, TBR=1.05,
                             T_out=900.0, T_in=800.0, fluid=Flibe(850.0), name="BB")
 
-    geom_hx = Geometry(L=10.0, thick=1e-3, D=2e-3)
-    mem_hx  = Membrane(D_0=1e-9, E_d=0.2, thick=1e-3, K_S=0.6, T=850.0, k_r=1e7, k=0.8, k_d=1e7)
+    geom_hx = Geometry(L=10.0, ds=1e-3, D=2e-3)
+    mem_hx  = Membrane(D_0=1e-9, E_d=0.2, ds=1e-3, K_S=0.6, T=850.0, k_r=1e7, k=0.8, k_d=1e7)
     fluid_hx = Fluid(T=850.0, D=1e-9, Solubility=0.5, MS=true,
                      mu=1e-3, rho=1000.0, k=0.5, cp=1.0,
                      k_t=0.1, U0=1.0, d_Hyd=2e-2)

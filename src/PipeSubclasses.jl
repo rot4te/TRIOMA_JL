@@ -6,12 +6,15 @@ sub-objects used by the Component type.
 """
 module PipeSubclasses
 
-using ..TriomaTypes: update_attribute!
+using ..TriomaCore: update_attribute!
 using ..Correlations
+import ..Correlations: hydraulic_diameter
 using AtomicAndPhysicalConstants: BOLTZMANN_k
 
 export Geometry, Fluid, Membrane, FluidMaterial, SolidMaterial,
        Turbulator, WireCoil, CustomTurbulator,
+       CrossSection, Circular, Rectangular, Annulus, TwistedElliptical,
+       flow_area, wetted_perimeter, hydraulic_diameter,
        get_fluid_volume, get_solid_volume, get_total_volume,
        set_properties_from_fluid_material!, set_properties_from_solid_material!,
        update_T_prop!, get_kt!,
@@ -73,6 +76,67 @@ function h_t_correlation(t::CustomTurbulator;
     return Correlations.get_h_from_Nu(Nu, k, d_hyd)
 end
 
+# ── Cross-sections ─────────────────────────────────────────────────────────────
+# The flow cross-section of a pipe. Each concrete type knows its flow area and
+# wetted perimeter, from which the hydraulic diameter D_h = 4 A / P follows.
+# Circular is the default; non-circular shapes (Rectangular, Annulus, …) plug in
+# here without touching the transport code, which only ever sees `d_Hyd`.
+
+"""Abstract supertype for pipe flow cross-sections."""
+abstract type CrossSection end
+
+"""Circular cross-section of inner diameter `D` [m] (the default pipe shape)."""
+struct Circular <: CrossSection
+    D::Float64
+end
+
+"""Rectangular cross-section of `width` × `height` [m]."""
+struct Rectangular <: CrossSection
+    width::Float64
+    height::Float64
+end
+
+"""Concentric annular cross-section between `D_outer` and `D_inner` [m]."""
+struct Annulus <: CrossSection
+    D_outer::Float64
+    D_inner::Float64
+end
+
+"""
+    TwistedElliptical(a, b)
+
+Elliptical cross-section with semi-major axis `a` and semi-minor axis `b` [m].
+Intended for twisted-elliptical tubes (TETs): the twist pitch affects swirl-induced
+heat/mass-transfer enhancement but not the geometric `D_h = 4A/P`, which depends
+only on the cross-sectional area and perimeter.
+"""
+struct TwistedElliptical <: CrossSection
+    a::Float64   # semi-major axis [m]
+    b::Float64   # semi-minor axis [m]
+end
+
+"""Flow (wetted) cross-sectional area [m²]."""
+flow_area(cs::Circular)::Float64         = π * (cs.D / 2)^2
+flow_area(cs::Rectangular)::Float64      = cs.width * cs.height
+flow_area(cs::Annulus)::Float64          = π * ((cs.D_outer / 2)^2 - (cs.D_inner / 2)^2)
+flow_area(cs::TwistedElliptical)::Float64 = π * cs.a * cs.b
+
+"""Wetted perimeter [m]."""
+wetted_perimeter(cs::Circular)::Float64    = π * cs.D
+wetted_perimeter(cs::Rectangular)::Float64 = 2 * (cs.width + cs.height)
+wetted_perimeter(cs::Annulus)::Float64     = π * (cs.D_outer + cs.D_inner)
+
+# Ramanujan's second approximation; exact for circles (h=0), O(h^10) error otherwise.
+function wetted_perimeter(cs::TwistedElliptical)::Float64
+    a, b = cs.a, cs.b
+    h = ((a - b) / (a + b))^2
+    return π * (a + b) * (1 + 3h / (10 + sqrt(4 - 3h)))
+end
+
+"""Hydraulic diameter of a cross-section, ``D_h = 4 A / P``."""
+hydraulic_diameter(cs::CrossSection)::Float64 =
+    hydraulic_diameter(flow_area(cs), wetted_perimeter(cs))
+
 # ── Geometry ───────────────────────────────────────────────────────────────────
 
 """
@@ -81,28 +145,57 @@ end
 Geometric parameters for a pipe/tube component.
 
 Fields
-- `L`        : length [m]
-- `D`        : inner diameter [m]
-- `thick`    : wall thickness [m]
-- `n_pipes`  : number of parallel pipes (default 1)
-- `turbulator`: optional turbulator object
+- `L`           : length [m]
+- `D`           : inner diameter [m] (circular pipes; characteristic diameter otherwise)
+- `ds`          : wall thickness [m]
+- `n_pipes`     : number of parallel pipes (default 1)
+- `turbulator`  : optional turbulator object
+- `cross_section`: optional `CrossSection`. When `nothing` (default) the pipe is
+  treated as `Circular(D)`, so the hydraulic diameter equals `D`. Provide a
+  `Rectangular`, `Annulus`, … to model non-cylindrical channels.
 """
 mutable struct Geometry
     L::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
-    thick::Union{Float64,Nothing}
+    ds::Union{Float64,Nothing}
     n_pipes::Float64
     turbulator::Union{WireCoil,CustomTurbulator,Turbulator,Nothing}
+    cross_section::Union{CrossSection,Nothing}
 end
-function Geometry(; L=nothing, D=nothing, thick=nothing, n_pipes=1.0, turbulator=nothing)
-    Geometry(L, D, thick, n_pipes, turbulator)
+function Geometry(; L=nothing, D=nothing, ds=nothing, n_pipes=1.0,
+                    turbulator=nothing, cross_section=nothing)
+    Geometry(L, D, ds, n_pipes, turbulator, cross_section)
 end
+
+# Effective cross-section: the explicit one if given, else a circular pipe of
+# diameter `D`. Built on demand so it always reflects the current `D`.
+_section(g::Geometry)::CrossSection =
+    g.cross_section !== nothing ? g.cross_section : Circular(g.D)
+
+"""Flow (wetted) cross-sectional area of the pipe [m²]."""
+flow_area(g::Geometry)::Float64 = flow_area(_section(g))
+
+"""Wetted perimeter of the pipe cross-section [m]."""
+wetted_perimeter(g::Geometry)::Float64 = wetted_perimeter(_section(g))
+
+"""Hydraulic diameter of the pipe, ``D_h = 4 A / P`` (equals `D` for a circular pipe)."""
+hydraulic_diameter(g::Geometry)::Float64 = hydraulic_diameter(_section(g))
 
 """Fluid volume of a single pipe [m³]."""
-get_fluid_volume(g::Geometry)::Float64 = π * (g.D / 2)^2 * g.L
+get_fluid_volume(g::Geometry)::Float64 = flow_area(g) * g.L
 
-"""Wall (solid) volume of a single pipe [m³]."""
-get_solid_volume(g::Geometry)::Float64 = π * ((g.D / 2)^2 - (g.D / 2 - g.thick)^2) * g.L
+"""
+Wall (solid) volume of a single pipe [m³].
+
+Currently modeled as a circular wall of thickness `ds` (inner diameter `D`),
+so a circular `D` is required even when a non-circular `cross_section` is set.
+"""
+function get_solid_volume(g::Geometry)::Float64
+    g.D === nothing && error(
+        "get_solid_volume requires a circular diameter `D`; wall volume for " *
+        "non-circular cross-sections is not yet modeled")
+    return π * ((g.D / 2)^2 - (g.D / 2 - g.ds)^2) * g.L
+end
 
 """Total volume (fluid + wall) of a single pipe [m³]."""
 get_total_volume(g::Geometry)::Float64 = get_fluid_volume(g) + get_solid_volume(g)
@@ -260,7 +353,7 @@ Temperature-dependent `D` and `K_S` are evaluated from Arrhenius parameters
 mutable struct Membrane
     T::Union{Float64,Nothing}
     D::Union{Float64,Nothing}
-    thick::Union{Float64,Nothing}
+    ds::Union{Float64,Nothing}
     K_S::Union{Float64,Nothing}
     k_d::Union{Float64,Nothing}   # dissociation rate constant
     k_r::Union{Float64,Nothing}   # recombination rate constant
@@ -274,7 +367,7 @@ mutable struct Membrane
 end
 
 function Membrane(;
-    T=nothing, D=nothing, thick=nothing, K_S=nothing,
+    T=nothing, D=nothing, ds=nothing, K_S=nothing,
     k_d=nothing, k_r=nothing, k=nothing,
     D_0=nothing, E_d=nothing, K_S_0=nothing, E_S=nothing,
     inv=nothing, V=nothing
@@ -283,7 +376,7 @@ function Membrane(;
         D_0 * exp(-E_d / (K_B_EV * T)) : D
     KS_val = (K_S_0 !== nothing && E_S !== nothing && T !== nothing) ?
         K_S_0 * exp(-E_S / (K_B_EV * T)) : K_S
-    Membrane(T, D_val, thick, KS_val, k_d, k_r, k, D_0, E_d, K_S_0, E_S, inv, V)
+    Membrane(T, D_val, ds, KS_val, k_d, k_r, k, D_0, E_d, K_S_0, E_S, inv, V)
 end
 
 """Copy membrane properties from a `SolidMaterial` object."""
