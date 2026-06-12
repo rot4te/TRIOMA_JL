@@ -51,7 +51,7 @@
     end
 
     @testset "Geometry — circular fallback" begin
-        g = Geometry(L=1.0, D=0.3, ds=0.01)
+        g = Geometry(L=1.0, D=0.3, dw=0.01)
         @test hydraulic_diameter(g) ≈ 0.3
         @test flow_area(g) ≈ π * 0.15^2
         @test wetted_perimeter(g) ≈ π * 0.3
@@ -59,7 +59,7 @@
 
     @testset "Geometry — explicit TwistedElliptical cross-section" begin
         cs = TwistedElliptical(0.2, 0.1)
-        g  = Geometry(L=1.0, D=0.3, ds=0.01, cross_section=cs)
+        g  = Geometry(L=1.0, D=0.3, dw=0.01, cross_section=cs)
         @test flow_area(g)          ≈ flow_area(cs)
         @test wetted_perimeter(g)   ≈ wetted_perimeter(cs)
         @test hydraulic_diameter(g) ≈ hydraulic_diameter(cs)
@@ -69,7 +69,7 @@
     @testset "define_component_volumes! auto-derives d_Hyd for TwistedElliptical" begin
         cs   = TwistedElliptical(0.2, 0.1)
         comp = Component(
-            geometry = Geometry(L=1.0, D=0.3, ds=0.01, cross_section=cs),
+            geometry = Geometry(L=1.0, D=0.3, dw=0.01, cross_section=cs),
             fluid    = Fluid(MS=true),
             membrane = Membrane()
         )
@@ -135,7 +135,8 @@ end
         a1 = -19.70 + 4.90*r - 0.22*r^2
         a2 =  10.52 - 2.66*r + 0.12*r^2
         a3 =  -1.47 + 0.36*r - 0.016*r^2
-        @test f ≈ 10^(a1 + a2*log(Re_t) + a3*log(Re_t)^2)
+        # log10, confirmed by Hughes (2017) Appendix C Python code
+        @test f ≈ 10^(a1 + a2*log10(Re_t) + a3*log10(Re_t)^2)
         @test f > 0
     end
 
@@ -143,6 +144,23 @@ end
         f = fD_Gao_tube(Re_t, D_h, D_max, D_min, s)
         @test f ≈ 4.572 * Re_t^(-0.521) * (D_min/D_max)^(-0.334) * (s/D_h)^(-0.082)
         @test f > 0
+    end
+
+    @testset "fD_Yang_tube" begin
+        f = fD_Yang_tube(Re_t, Pr_t, D_h, D_max, D_min, s)
+        @test f ≈ 0.71497 * Re_t^0.07777 * Pr_t^(-1.03974) *
+                  (D_max/D_min)^(-0.076212) * (s/D_h)^(-0.33393)
+        @test f > 0
+    end
+
+    @testset "Nu_Yang_lam" begin
+        # Use laminar-range Re
+        Re_lam = 200.0; Pr_lam = 7.0
+        Nu = Nu_Yang_lam(Re_lam, Pr_lam, D_max, D_min, s)
+        @test Nu ≈ 3.66 + 0.512 * Re_lam^0.477 * Pr_lam^0.975 *
+                   (1 - D_min/D_max)^1.532 * (s/D_min)^(-0.609)
+        # More eccentric tube (smaller D_min/D_max) → higher Nu
+        @test Nu_Yang_lam(Re_lam, Pr_lam, D_max, D_min*0.5, s) > Nu
     end
 
 end
